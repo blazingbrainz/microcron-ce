@@ -1,6 +1,10 @@
 # Build stage
 FROM golang:1.26-alpine AS builder
 
+LABEL org.opencontainers.image.source=https://github.com/blazingbrainz/microcron-ce
+LABEL org.opencontainers.image.description="Microcron-CE: Kubernetes microservice for scheduled scripts"
+LABEL org.opencontainers.image.licenses="MIT"
+
 WORKDIR /build
 
 # Install build dependencies
