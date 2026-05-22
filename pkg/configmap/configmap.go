@@ -4,67 +4,66 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
-
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
-// Script represents a script loaded from ConfigMap.
 type Script struct {
 	Name     string
 	Content  string
 	Schedule string
 }
 
-// Loader handles loading scripts from Kubernetes ConfigMap.
 type Loader struct {
-	clientset  *kubernetes.Clientset
-	namespace  string
-	configMap  string
+	mountPath string
 }
 
-// NewLoader creates a new ConfigMap loader.
+// NewLoader creates a new ConfigMap loader that reads from a mounted volume.
 func NewLoader(namespace, configMapName string) (*Loader, error) {
-	// Create Kubernetes client
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create in-cluster config: %w", err)
-	}
+	// ConfigMap is mounted at /etc/microcron-ce/scripts
+	mountPath := "/etc/microcron-ce/scripts"
 
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Kubernetes client: %w", err)
+	// Verify the mount path exists
+	if _, err := os.Stat(mountPath); err != nil {
+		return nil, fmt.Errorf("ConfigMap mount path %s not found: %w", mountPath, err)
 	}
 
 	return &Loader{
-		clientset: clientset,
-		namespace: namespace,
-		configMap: configMapName,
+		mountPath: mountPath,
 	}, nil
 }
 
-// LoadScripts loads all scripts from the ConfigMap.
+// LoadScripts loads all scripts from the mounted ConfigMap volume.
 func (l *Loader) LoadScripts(ctx context.Context) ([]*Script, error) {
-	cm, err := l.clientset.CoreV1().ConfigMaps(l.namespace).Get(ctx, l.configMap, metav1.GetOptions{})
+	entries, err := os.ReadDir(l.mountPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get ConfigMap: %w", err)
+		return nil, fmt.Errorf("failed to read ConfigMap mount path: %w", err)
 	}
 
 	var scripts []*Script
-	for name, content := range cm.Data {
-		schedule, err := extractSchedule(content)
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		filePath := filepath.Join(l.mountPath, entry.Name())
+		content, err := os.ReadFile(filePath)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: Failed to extract schedule from script %s: %v\n", name, err)
+			fmt.Fprintf(os.Stderr, "Warning: Failed to read script file %s: %v\n", entry.Name(), err)
+			continue
+		}
+
+		contentStr := string(content)
+		schedule, err := extractSchedule(contentStr)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: Failed to extract schedule from script %s: %v\n", entry.Name(), err)
 			continue
 		}
 
 		scripts = append(scripts, &Script{
-			Name:     name,
-			Content:  content,
+			Name:     entry.Name(),
+			Content:  contentStr,
 			Schedule: schedule,
 		})
 	}
@@ -73,26 +72,21 @@ func (l *Loader) LoadScripts(ctx context.Context) ([]*Script, error) {
 }
 
 // extractSchedule extracts the cron schedule from the first commented line.
-// Expected format: "# * * * * *" or "#!/bin/bash\n# * * * * *"
 func extractSchedule(content string) (string, error) {
 	lines := strings.Split(content, "\n")
 	if len(lines) < 1 {
 		return "", fmt.Errorf("empty script content")
 	}
 
-	// Skip shebang line if present
 	startIdx := 0
 	if strings.HasPrefix(lines[0], "#!") {
 		startIdx = 1
 	}
 
-	// Find the first comment line that looks like a cron expression
 	for i := startIdx; i < len(lines); i++ {
 		line := strings.TrimSpace(lines[i])
 		if strings.HasPrefix(line, "#") {
-			// Remove the # and whitespace
 			schedule := strings.TrimSpace(line[1:])
-			// Basic validation: cron expressions have 5 fields separated by spaces
 			fields := strings.Fields(schedule)
 			if len(fields) == 5 {
 				return schedule, nil
@@ -103,7 +97,7 @@ func extractSchedule(content string) (string, error) {
 	return "", fmt.Errorf("no valid cron schedule found in script")
 }
 
-// WatchScripts watches for changes to the ConfigMap and returns updates.
+// WatchScripts watches for changes to the ConfigMap by polling the mounted directory.
 func (l *Loader) WatchScripts(ctx context.Context) (<-chan []*Script, error) {
 	updates := make(chan []*Script)
 
@@ -111,6 +105,8 @@ func (l *Loader) WatchScripts(ctx context.Context) (<-chan []*Script, error) {
 		defer close(updates)
 		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()
+
+		var lastScripts []*Script
 
 		for {
 			select {
@@ -122,10 +118,28 @@ func (l *Loader) WatchScripts(ctx context.Context) (<-chan []*Script, error) {
 					fmt.Fprintf(os.Stderr, "Error loading scripts: %v\n", err)
 					continue
 				}
-				updates <- scripts
+
+				// Only send update if scripts changed
+				if !scriptsEqual(lastScripts, scripts) {
+					updates <- scripts
+					lastScripts = scripts
+				}
 			}
 		}
 	}()
 
 	return updates, nil
+}
+
+// scriptsEqual checks if two script slices are equal.
+func scriptsEqual(a, b []*Script) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].Name != b[i].Name || a[i].Content != b[i].Content || a[i].Schedule != b[i].Schedule {
+			return false
+		}
+	}
+	return true
 }

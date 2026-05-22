@@ -53,11 +53,11 @@ microcron-ce/
 - Handles job creation, update, and removal
 - Thread-safe job management
 
-**pkg/configmap/**: Kubernetes ConfigMap integration
-- Loads scripts from ConfigMaps
+**pkg/configmap/**: ConfigMap integration
+- Reads scripts from mounted ConfigMap volume
 - Extracts cron schedule from script comments
-- Watches for ConfigMap updates
-- In-cluster Kubernetes authentication
+- Polls for ConfigMap updates every 30 seconds
+- No Kubernetes API calls required
 
 **pkg/executor/**: Script execution
 - Executes shell scripts via os/exec
@@ -74,15 +74,15 @@ microcron-ce/
 
 ### Core Features
 
-✅ **ConfigMap-Based Script Management**: Scripts stored as ConfigMap data  
+✅ **ConfigMap-Based Script Management**: Scripts mounted as volume  
 ✅ **Cron Schedule Support**: Full cron expression support (5 fields)  
 ✅ **Automatic Log Rotation**: Daily logs with configurable retention  
 ✅ **Persistent Logging**: Optional PVC for durable log storage  
-✅ **Hot Script Reloading**: ConfigMap updates detected automatically  
-✅ **Kubernetes RBAC**: Proper service accounts and role bindings  
+✅ **Hot Script Reloading**: ConfigMap updates detected via polling  
+✅ **No API Calls**: Scripts loaded from mounted volumes (zero Kubernetes API dependency)  
 ✅ **Security**: Non-root user, read-only filesystem (except logs)  
 ✅ **Health Checks**: Liveness and readiness probes  
-✅ **Production Ready**: Multi-stage Docker build, resource limits
+✅ **Production Ready**: Multi-stage Docker build, resource limits, minimal footprint
 
 ### Script Format
 
@@ -113,9 +113,9 @@ Examples:
 
 ### Prerequisites
 
-- Go 1.22+
+- Go 1.26+
 - Kubernetes 1.24+
-- Helm 3.0+
+- Helm 3.7+ (for OCI registry support)
 - Docker (for building images)
 
 ### Local Development
@@ -263,9 +263,11 @@ helm uninstall microcron-ce
 ### Kubernetes RBAC
 
 The chart creates:
-- **ServiceAccount**: microcron-ce
-- **ClusterRole**: Permission to get/list/watch ConfigMaps
-- **ClusterRoleBinding**: Binds ServiceAccount to ClusterRole
+- **ServiceAccount**: microcron-ce (for pod identity)
+- **ClusterRole**: Empty (no API permissions required)
+- **ClusterRoleBinding**: Minimal binding for pod identity
+
+**Note**: No API permissions are required since scripts are loaded from mounted volumes.
 
 ## Logs
 
@@ -417,25 +419,35 @@ For issues, questions, or feature requests, please contact:
 
 ## Changelog
 
-### v0.1.0 (Initial Release)
-- Initial release with core functionality
-- ConfigMap script loading
-- Cron schedule support
-- Log rotation
+See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
+
+### v0.1.0 (Current Release)
+- ConfigMap volume mounting (no API calls)
+- Full cron schedule support
+- Automatic log rotation
 - Helm chart deployment
-- Docker containerization
-- Kubernetes RBAC
+- Secure container with non-root user
+- Hot reloading of scripts
+
+## Architecture Decisions
+
+### Why Volume Mounting Instead of API Calls?
+- **Simpler**: No authentication/authorization complexity
+- **Faster**: No network overhead for ConfigMap reads
+- **More Secure**: Reduces attack surface (no API token in pod)
+- **Reliable**: Kubernetes handles volume mounting automatically
+- **Zero Dependencies**: Uses only Go standard library + robfig/cron
 
 ## Roadmap
 
 Future enhancements:
-- [ ] tokenized secrets in scripts via k8s opaque secrets
-- [ ] Job execution history/metrics
+- [ ] Tokenized secrets in scripts via Kubernetes Secrets
+- [ ] Job execution history and metrics
 - [ ] Prometheus metrics export
 - [ ] Script execution timeout configuration
 - [ ] Webhook notifications on job completion
-- [ ] react based UI dashboard for job monitoring
-- [ ] SAML/OAuth role based login for UI
+- [ ] React-based UI dashboard for job monitoring
+- [ ] SAML/OAuth role-based authentication
 - [ ] Ingress support
 - [ ] Multi-namespace support
-- [ ] Script templates 
+- [ ] Script templates with variable substitution 

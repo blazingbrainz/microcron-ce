@@ -1,0 +1,23 @@
+apiVersion: v2
+name: microcron-ce
+description: A Kubernetes-native cron job runner with full expression support and automatic log rotation
+type: application
+
+# Chart version (increment for releases)
+version: 0.1.0
+
+# Application version (the version of microcron-ce being packaged)
+appVersion: "0.1.0"
+
+# Metadata
+home: https://github.com/blazingbrainz/microcron-ce
+sources:
+  - https://github.com/blazingbrainz/microcron-ce
+maintainers:
+  - name: blazingbrainz
+    email: mailfrmsoyuz@rocketmail.com
+keywords:
+  - cron
+  - scheduler
+  - kubernetes
+icon: https://raw.githubusercontent.com/blazingbrainz/microcron-ce/main/docs/icon.png

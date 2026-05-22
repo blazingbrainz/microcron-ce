@@ -16,6 +16,8 @@ imagePullSecrets: []
 namespace: default
 
 # ConfigMap name containing cron scripts
+# This ConfigMap will be mounted as a volume at /etc/microcron-ce/scripts
+# Each key in the ConfigMap becomes a script file
 configMapName: microcron-scripts
 
 # Service account
@@ -94,13 +96,15 @@ readinessProbe:
 debug: false
 
 # Scripts to include in the ConfigMap
+# Each key becomes a script file mounted at /etc/microcron-ce/scripts/<key>
+# The first comment line (after shebang) should be the cron schedule: # * * * * *
 scripts:
   health-check.sh: |
     #!/bin/bash
     # */5 * * * *
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] Service is healthy and running"
     echo "Microcron-CE instance is operational"
-  
+
   example-cron.sh: |
     #!/bin/bash
     # 0 * * * *
