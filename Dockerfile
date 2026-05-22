@@ -16,7 +16,7 @@ RUN go mod download
 COPY . .
 
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o microcron-ce ./cmd/microcron-ce
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o microcron-ce ./cmd
 
 # Runtime stage
 FROM alpine:latest

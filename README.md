@@ -20,8 +20,7 @@ Microcron-CE solves the problem of running scheduled tasks in Kubernetes environ
 ```
 microcron-ce/
 ├── cmd/
-│   └── microcron-ce/
-│       └── main.go              # Application entry point
+│   └── main.go                  # Application entry point
 ├── pkg/
 │   ├── cron/
 │   │   └── scheduler.go         # Cron job scheduling logic
@@ -31,12 +30,11 @@ microcron-ce/
 │   │   └── executor.go          # Script execution engine
 │   └── logger/
 │       └── logger.go            # Log rotation handler
-├── helm/
-│   └── microcron-ce/            # Helm chart v0.1.0
-│       ├── Chart.yaml
-│       ├── values.yaml
-│       ├── templates/
-│       └── README.md
+├── helm/                        # Helm chart v0.1.0           
+│   ├── Chart.yaml
+│   ├── values.yaml
+│   ├── templates/
+│   └── README.md
 ├── Dockerfile                    # Container image
 ├── go.mod                        # Go module definition
 └── README.md                     # This file
@@ -44,7 +42,7 @@ microcron-ce/
 
 ### Project Structure
 
-**cmd/microcron-ce/**: Main application entry point
+**cmd/main.go**: Main application entry point
 - Loads configuration from flags
 - Initializes logger, ConfigMap loader, and scheduler
 - Watches ConfigMap for updates
