@@ -79,7 +79,6 @@ microcron-ce/
 ✅ **Automatic Log Rotation**: Daily logs with configurable retention  
 ✅ **Persistent Logging**: Optional PVC for durable log storage  
 ✅ **Hot Script Reloading**: ConfigMap updates detected via polling  
-✅ **No API Calls**: Scripts loaded from mounted volumes (zero Kubernetes API dependency)  
 ✅ **Security**: Non-root user, read-only filesystem (except logs)  
 ✅ **Health Checks**: Liveness and readiness probes  
 ✅ **Production Ready**: Multi-stage Docker build, resource limits, minimal footprint
@@ -225,7 +224,7 @@ The Helm chart includes:
 - **ServiceAccount**: RBAC identity
 - **ClusterRole/ClusterRoleBinding**: Permissions to read ConfigMaps
 - **PersistentVolumeClaim**: Optional log storage
-- **ConfigMap example**: Sample scripts (optional)
+- **ConfigMap**: template for script cofigmap
 
 ### Helm Chart Management
 
@@ -266,7 +265,6 @@ The chart creates:
 - **ClusterRole**: Empty (no API permissions required)
 - **ClusterRoleBinding**: Minimal binding for pod identity
 
-**Note**: No API permissions are required since scripts are loaded from mounted volumes.
 
 ## Logs
 
@@ -313,30 +311,6 @@ kubectl exec deployment/microcron-ce -n microcron-ce -- \
 - Verify PVC is bound: `kubectl get pvc`
 - Check pod volume mounts: `kubectl describe pod <pod-name>`
 
-## Development Guide
-
-### Adding a New Package
-
-1. Create package directory: `pkg/newpackage/`
-2. Create implementation: `pkg/newpackage/newpackage.go`
-3. Add tests: `pkg/newpackage/newpackage_test.go`
-4. Update imports in `cmd/microcron-ce/main.go`
-
-### Testing
-
-```bash
-go test ./...
-go test -v ./pkg/cron
-go test -cover ./...
-```
-
-### Code Style
-
-- Follow Go conventions
-- Use meaningful variable names
-- Add comments for exported functions
-- Keep packages focused and atomic
-
 ## Examples
 
 ### Example 1: Hourly Health Check
@@ -353,22 +327,7 @@ else
 fi
 ```
 
-### Example 2: Daily Database Backup
-
-```bash
-#!/bin/bash
-# 0 2 * * *
-
-BACKUP_DIR="/backups"
-DATE=$(date +%Y%m%d_%H%M%S)
-BACKUP_FILE="$BACKUP_DIR/db_backup_$DATE.sql"
-
-pg_dump -h db-host -U db-user -d db-name > "$BACKUP_FILE"
-gzip "$BACKUP_FILE"
-echo "Backup completed: ${BACKUP_FILE}.gz"
-```
-
-### Example 3: Every 5 Minutes Log Check
+### Example 2: Every 5 Minutes Log Check
 
 ```bash
 #!/bin/bash
@@ -378,7 +337,7 @@ ERROR_COUNT=$(grep -c "ERROR" /var/log/app.log)
 echo "Current error count: $ERROR_COUNT"
 ```
 
-## Publishing & Development
+## Publishing & Development (contributors only section)
 
 ### For Contributors - Building from Source
 
@@ -400,7 +359,7 @@ cd helm
 helm package .
 ```
 
-### Publishing to GHCR
+### Publishing to GHCR (optional - only for authors)
 
 **Prerequisites**:
 - GitHub Personal Access Token with `write:packages` permission
@@ -411,10 +370,12 @@ helm package .
 echo YOUR_GITHUB_PAT | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
 
 # 2. Build and push Docker image
+#    update namespace if needed
 docker build -t ghcr.io/blazingbrainz/microcron-ce:0.1.0 .
 docker push ghcr.io/blazingbrainz/microcron-ce:0.1.0
 
 # 3. Push Helm chart as OCI artifact using oras
+#    Update namespace to your own/target namespace
 cd helm
 oras login -u YOUR_GITHUB_USERNAME -p YOUR_GITHUB_PAT ghcr.io
 oras push ghcr.io/blazingbrainz/helm-charts/microcron-ce:0.1.0 \
@@ -427,13 +388,6 @@ oras repo tags ghcr.io/blazingbrainz/helm-charts/microcron-ce
 
 **Note**: Use `oras` instead of `helm push` for reliable OCI artifact publishing to GHCR.
 
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Write tests
-5. Submit a pull request
 
 ## License
 
@@ -449,22 +403,6 @@ For issues, questions, or feature requests, please contact:
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
-### v0.1.0 (Current Release)
-- ConfigMap volume mounting (no API calls)
-- Full cron schedule support
-- Automatic log rotation
-- Helm chart deployment
-- Secure container with non-root user
-- Hot reloading of scripts
-
-## Architecture Decisions
-
-### Why Volume Mounting Instead of API Calls?
-- **Simpler**: No authentication/authorization complexity
-- **Faster**: No network overhead for ConfigMap reads
-- **More Secure**: Reduces attack surface (no API token in pod)
-- **Reliable**: Kubernetes handles volume mounting automatically
-- **Zero Dependencies**: Uses only Go standard library + robfig/cron
 
 ## Roadmap
 
