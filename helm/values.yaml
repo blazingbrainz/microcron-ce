@@ -5,12 +5,13 @@ replicaCount: 1
 
 # Image configuration
 image:
-  repository: blazingbrainz/microcron-ce
+  repository: ghcr.io/blazingbrainz/microcron-ce
   pullPolicy: IfNotPresent
   tag: "0.1.0"
 
-# Image pull secrets
+# Image pull secrets (required for private GHCR)
 imagePullSecrets: []
+  # - name: ghcr-secret
 
 # Kubernetes namespace
 namespace: default

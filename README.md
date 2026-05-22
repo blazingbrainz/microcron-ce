@@ -113,71 +113,65 @@ Examples:
 
 ### Prerequisites
 
-- Go 1.26+
 - Kubernetes 1.24+
 - Helm 3.7+ (for OCI registry support)
-- Docker (for building images)
+- kubectl configured with cluster access
+- GitHub Personal Access Token (for pulling from ghcr.io)
 
-### Local Development
+### Quick Start - Deploy from OCI Registry
 
-1. **Build the application**
-   ```bash
-   go build -o microcron-ce ./cmd/microcron-ce
-   ```
+```bash
+# 1. Create namespace
+kubectl create namespace microcron-ce
 
-2. **Create a test ConfigMap**
-   ```bash
-   kubectl create configmap microcron-scripts \
-     --from-literal='test.sh=#!/bin/bash\n# */5 * * * *\necho "Hello from script"'
-   ```
+# 2. Create image pull secret (if private registry)
+kubectl create secret docker-registry ghcr-secret \
+  --docker-server=ghcr.io \
+  --docker-username=YOUR_GITHUB_USERNAME \
+  --docker-password=YOUR_GITHUB_TOKEN \
+  -n microcron-ce
 
-3. **Run the application**
-   ```bash
-   ./microcron-ce \
-     --namespace=default \
-     --configmap=microcron-scripts \
-     --log-dir=./logs \
-     --retention-days=7
-   ```
+# 3. Add Helm repo and install
+helm pull oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce --version 0.1.0
 
-### Deployment with Helm
+# 4. Install chart
+helm install microcron-ce ./microcron-ce-0.1.0.tgz \
+  --namespace microcron-ce \
+  --set image.repository=ghcr.io/blazingbrainz/microcron-ce \
+  --set image.pullPolicy=IfNotPresent
 
-1. **Install with default values**
-   ```bash
-   helm install microcron-ce ./helm/microcron-ce \
-     --namespace microcron-ce \
-     --create-namespace
-   ```
+# 5. Verify deployment
+kubectl get pods -n microcron-ce
+kubectl logs -f deployment/microcron-ce -n microcron-ce
+```
 
-2. **Create scripts ConfigMap**
-   ```bash
-   kubectl create configmap microcron-scripts \
-     --from-file=backup.sh \
-     --from-file=health-check.sh \
-     -n microcron-ce
-   ```
+### Deployment Examples
 
-3. **Verify deployment**
-   ```bash
-   kubectl get pods -n microcron-ce
-   kubectl logs -f deployment/microcron-ce -n microcron-ce
-   ```
+**Production Deployment**
+```bash
+helm install microcron-ce oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce \
+  --version 0.1.0 \
+  --namespace production \
+  --create-namespace \
+  --values values-production.yaml
+```
 
-### Docker Build
+**Development Deployment**
+```bash
+helm install microcron-ce oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce \
+  --version 0.1.0 \
+  --namespace dev \
+  --create-namespace \
+  --set logging.retentionDays=3 \
+  --set persistence.enabled=false
+```
 
-1. **Build image**
-   ```bash
-   docker build -t microcron-ce:0.1.0 .
-   ```
+### Container Images
 
-2. **Run in container**
-   ```bash
-   docker run \
-     -v $(pwd)/logs:/var/log/microcron-ce \
-     -e KUBECONFIG=/root/.kube/config \
-     -v $HOME/.kube/config:/root/.kube/config \
-     microcron-ce:0.1.0
-   ```
+**Docker Image**: `ghcr.io/blazingbrainz/microcron-ce:0.1.0`
+**Helm Chart**: `oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce:0.1.0`
+
+Both available at GitHub Container Registry (GHCR)
 
 ## Configuration
 
@@ -233,21 +227,26 @@ The Helm chart includes:
 - **PersistentVolumeClaim**: Optional log storage
 - **ConfigMap example**: Sample scripts (optional)
 
-### Install Helm Chart
+### Helm Chart Management
 
+**Install from OCI Registry**
 ```bash
-# Install with defaults
-helm install microcron-ce ./helm/microcron-ce
+helm install microcron-ce oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce \
+  --version 0.1.0 \
+  --namespace microcron-ce \
+  --create-namespace
+```
 
-# Install with custom values
-helm install microcron-ce ./helm/microcron-ce \
-  -f helm/microcron-ce/values-production.yaml
+**Upgrade to newer version**
+```bash
+helm upgrade microcron-ce oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce \
+  --version 0.1.1 \
+  --namespace microcron-ce
+```
 
-# Upgrade
-helm upgrade microcron-ce ./helm/microcron-ce
-
-# Uninstall
-helm uninstall microcron-ce
+**Uninstall**
+```bash
+helm uninstall microcron-ce -n microcron-ce
 ```
 
 ## Security
@@ -379,25 +378,54 @@ ERROR_COUNT=$(grep -c "ERROR" /var/log/app.log)
 echo "Current error count: $ERROR_COUNT"
 ```
 
-## Deployment Examples
+## Publishing & Development
 
-### Development Deployment
+### For Contributors - Building from Source
 
-```bash
-helm install microcron-ce ./helm/microcron-ce \
-  --namespace dev \
-  --create-namespace \
-  --set logging.retentionDays=3
-```
-
-### Production Deployment
+**Prerequisites**: Go 1.26+, Docker, Helm 3.7+, oras
 
 ```bash
-helm install microcron-ce ./helm/microcron-ce \
-  --namespace production \
-  --create-namespace \
-  -f helm/microcron-ce/values-production.yaml
+# Clone and build
+git clone https://github.com/blazingbrainz/microcron-ce.git
+cd microcron-ce
+
+# Build Docker image
+docker build -t ghcr.io/blazingbrainz/microcron-ce:dev .
+
+# Test locally
+docker run ghcr.io/blazingbrainz/microcron-ce:dev
+
+# Package Helm chart
+cd helm
+helm package .
 ```
+
+### Publishing to GHCR
+
+**Prerequisites**:
+- GitHub Personal Access Token with `write:packages` permission
+- `docker` and `oras` CLI tools installed
+
+```bash
+# 1. Authenticate to GHCR
+echo YOUR_GITHUB_PAT | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
+
+# 2. Build and push Docker image
+docker build -t ghcr.io/blazingbrainz/microcron-ce:0.1.0 .
+docker push ghcr.io/blazingbrainz/microcron-ce:0.1.0
+
+# 3. Push Helm chart as OCI artifact using oras
+cd helm
+oras login -u YOUR_GITHUB_USERNAME -p YOUR_GITHUB_PAT ghcr.io
+oras push ghcr.io/blazingbrainz/helm-charts/microcron-ce:0.1.0 \
+  microcron-ce-0.1.0.tgz:application/vnd.cncf.helm.chart.v1.tar+gzip
+
+# 4. Verify both are published
+docker images | grep microcron-ce
+oras repo tags ghcr.io/blazingbrainz/helm-charts/microcron-ce
+```
+
+**Note**: Use `oras` instead of `helm push` for reliable OCI artifact publishing to GHCR.
 
 ## Contributing
 

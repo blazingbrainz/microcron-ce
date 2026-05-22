@@ -3,7 +3,7 @@
 replicaCount: 1
 
 image:
-  repository: blazingbrainz/microcron-ce
+  repository: ghcr.io/blazingbrainz/microcron-ce
   pullPolicy: IfNotPresent
   tag: "0.1.0"
 
