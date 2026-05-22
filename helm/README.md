@@ -16,7 +16,7 @@ A Kubernetes-native cron job runner that loads scripts from ConfigMaps and execu
 ### Prerequisites
 
 - Kubernetes 1.24+
-- Helm 3.0+
+- Helm 3.7+
 
 ### Install the Chart
 
@@ -254,9 +254,6 @@ docker run -v $(pwd)/scripts:/etc/microcron-ce/scripts \
   microcron-ce:latest
 ```
 
-## Support
-
-For issues, feature requests, or questions, please contact the development team at dev@blazingbrainz.com.
 
 ## License
 
