@@ -1,0 +1,148 @@
+package cron
+
+import (
+	"context"
+	"fmt"
+	"sync"
+
+	"github.com/blazingbrainz/microcron-ce/pkg/configmap"
+	"github.com/blazingbrainz/microcron-ce/pkg/executor"
+	"github.com/blazingbrainz/microcron-ce/pkg/logger"
+	cronlib "github.com/robfig/cron/v3"
+)
+
+// Scheduler manages cron job scheduling and execution.
+type Scheduler struct {
+	cron   *cronlib.Cron
+	logger *logger.RotatingLogger
+	jobs   map[string]cronlib.EntryID // Map script name to cron entry ID
+	mu     sync.Mutex
+}
+
+// NewScheduler creates a new cron scheduler.
+func NewScheduler(log *logger.RotatingLogger) *Scheduler {
+	return &Scheduler{
+		cron:   cronlib.New(),
+		logger: log,
+		jobs:   make(map[string]cronlib.EntryID),
+	}
+}
+
+// Start starts the cron scheduler.
+func (s *Scheduler) Start() {
+	s.cron.Start()
+	s.logger.Log("Cron scheduler started")
+}
+
+// Stop stops the cron scheduler.
+func (s *Scheduler) Stop() context.Context {
+	ctx := s.cron.Stop()
+	s.logger.Log("Cron scheduler stopped")
+	return ctx
+}
+
+// AddJob adds a script as a cron job.
+func (s *Scheduler) AddJob(script *configmap.Script) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Remove existing job if present
+	if entryID, exists := s.jobs[script.Name]; exists {
+		s.cron.Remove(entryID)
+		delete(s.jobs, script.Name)
+	}
+
+	// Create a job function that captures the script content
+	jobFunc := func() {
+		result := executor.Execute(script.Name, script.Content)
+		s.logger.Log(executor.FormatResult(result))
+	}
+
+	// Add the job to the cron schedule
+	entryID, err := s.cron.AddFunc(script.Schedule, jobFunc)
+	if err != nil {
+		errorMsg := fmt.Sprintf("Failed to add cron job %s with schedule %s: %v", script.Name, script.Schedule, err)
+		s.logger.Log(errorMsg)
+		return err
+	}
+
+	s.jobs[script.Name] = entryID
+	successMsg := fmt.Sprintf("Added cron job: %s (Schedule: %s)", script.Name, script.Schedule)
+	s.logger.Log(successMsg)
+	return nil
+}
+
+// RemoveJob removes a cron job by script name.
+func (s *Scheduler) RemoveJob(scriptName string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if entryID, exists := s.jobs[scriptName]; exists {
+		s.cron.Remove(entryID)
+		delete(s.jobs, scriptName)
+		s.logger.Log(fmt.Sprintf("Removed cron job: %s", scriptName))
+	}
+}
+
+// UpdateJobs updates the scheduler with a new set of scripts.
+func (s *Scheduler) UpdateJobs(scripts []*configmap.Script) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Build a map of current scripts
+	scriptMap := make(map[string]*configmap.Script)
+	for _, script := range scripts {
+		scriptMap[script.Name] = script
+	}
+
+	// Remove jobs that are no longer in the scripts
+	for scriptName, entryID := range s.jobs {
+		if _, exists := scriptMap[scriptName]; !exists {
+			s.cron.Remove(entryID)
+			delete(s.jobs, scriptName)
+			s.logger.Log(fmt.Sprintf("Removed cron job: %s", scriptName))
+		}
+	}
+
+	// Add new or updated jobs
+	for _, script := range scripts {
+		if entryID, exists := s.jobs[script.Name]; exists {
+			// Job already exists, check if schedule changed
+			currentEntry := s.cron.Entry(entryID)
+			if currentEntry.Valid() {
+				// For simplicity, always update (remove and re-add)
+				s.cron.Remove(entryID)
+				delete(s.jobs, script.Name)
+			}
+		}
+
+		// Add the job
+		jobFunc := func(scriptContent string, scriptName string) func() {
+			return func() {
+				result := executor.Execute(scriptName, scriptContent)
+				s.logger.Log(executor.FormatResult(result))
+			}
+		}(script.Content, script.Name)
+
+		entryID, err := s.cron.AddFunc(script.Schedule, jobFunc)
+		if err != nil {
+			return err
+		}
+		s.jobs[script.Name] = entryID
+		s.logger.Log(fmt.Sprintf("Updated cron job: %s (Schedule: %s)", script.Name, script.Schedule))
+	}
+
+	return nil
+}
+
+// GetJobs returns a list of all scheduled jobs.
+func (s *Scheduler) GetJobs() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var jobs []string
+	for scriptName := range s.jobs {
+		jobs = append(jobs, scriptName)
+	}
+	return jobs
+}
