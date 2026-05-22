@@ -185,13 +185,18 @@ Both available at GitHub Container Registry (GHCR)
 
 ### Helm Values
 
-Key Helm values (see `helm/microcron-ce/values.yaml` for all):
+Key Helm values (see `helm/values.yaml` for all):
 
 ```yaml
 replicaCount: 1
+
 image:
-  repository: blazingbrainz/microcron-ce
+  repository: ghcr.io/blazingbrainz/microcron-ce
+  pullPolicy: IfNotPresent
   tag: "0.1.0"
+
+imagePullSecrets: []
+  # - name: ghcr-secret
 
 namespace: default
 configMapName: microcron-scripts
