@@ -1,0 +1,102 @@
+# Production example values for microcron-ce
+
+replicaCount: 1
+
+image:
+  repository: blazingbrainz/microcron-ce
+  pullPolicy: IfNotPresent
+  tag: "0.1.0"
+
+namespace: production
+
+configMapName: microcron-scripts
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations:
+  prometheus.io/scrape: "false"
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 200m
+    memory: 512Mi
+
+nodeSelector:
+  node-type: compute
+
+tolerations: []
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - microcron-ce
+        topologyKey: kubernetes.io/hostname
+
+logging:
+  logDir: /var/log/microcron-ce
+  retentionDays: 30
+
+persistence:
+  enabled: true
+  storageClassName: fast-ssd
+  size: 50Gi
+  mountPath: /var/log/microcron-ce
+
+env:
+  - name: TZ
+    value: UTC
+
+livenessProbe:
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+debug: false
+
+# Scripts to include in the ConfigMap
+scripts:
+  health-check.sh: |
+    #!/bin/bash
+    # */5 * * * *
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] Service is healthy and running"
+    echo "Microcron-CE instance is operational"
+  
+  example-cron.sh: |
+    #!/bin/bash
+    # 0 * * * *
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] This is an example cron job"
+    echo "Running at the top of every hour"
+    echo "Script executed successfully!"

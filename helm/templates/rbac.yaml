@@ -1,0 +1,32 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "microcron-ce.fullname" . }}
+  labels:
+    {{- include "microcron-ce.labels" . | nindent 4 }}
+rules:
+# Permissions to read ConfigMaps
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "watch"]
+  resourceNames:
+    - {{ .Values.configMapName }}
+# Permissions to read namespaces
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "microcron-ce.fullname" . }}
+  labels:
+    {{- include "microcron-ce.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "microcron-ce.fullname" . }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "microcron-ce.serviceAccountName" . }}
+  namespace: {{ .Values.namespace }}
