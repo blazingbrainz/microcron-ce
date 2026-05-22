@@ -4,7 +4,7 @@ A lightweight, cloud-native microservice for running scheduled bash/shell script
 
 ## Overview
 
-Microcron-CE solves the problem of running scheduled tasks in Kubernetes environments. Unlike traditional cron jobs that run on a single node, Microcron-CE:
+Microcron-CE solves the problem of running scheduled tasks in Kubernetes environments. Build specifically for environments/organizations following k8s/container centric deployments. This microservice retains the familarity with the traditional bash scripts + cron syntax while taking full advantage for k8s infrastructures:
 
 - Loads scripts from Kubernetes ConfigMaps
 - Executes scripts according to cron schedules
@@ -412,7 +412,7 @@ MIT License - See LICENSE file for details
 ## Support
 
 For issues, questions, or feature requests, please contact:
-- Email: dev@blazingbrainz.com
+- Email:  mailfrmsoyuz@rocketmail.com
 - Issues: GitHub Issues
 
 ## Changelog
@@ -429,10 +429,13 @@ For issues, questions, or feature requests, please contact:
 ## Roadmap
 
 Future enhancements:
+- [ ] tokenized secrets in scripts via k8s opaque secrets
 - [ ] Job execution history/metrics
 - [ ] Prometheus metrics export
 - [ ] Script execution timeout configuration
 - [ ] Webhook notifications on job completion
-- [ ] UI dashboard for job monitoring
+- [ ] react based UI dashboard for job monitoring
+- [ ] SAML/OAuth role based login for UI
+- [ ] Ingress support
 - [ ] Multi-namespace support
-- [ ] Script templates
+- [ ] Script templates 
