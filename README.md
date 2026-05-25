@@ -139,6 +139,31 @@ EOF
 Each referenced key is available as an environment variable. The secret keys must match exactly (case-sensitive). Mounted secrets are read-only; no Kubernetes RBAC 
 permissions are required.
 
+### Script Examples
+**Example 1: Hourly Health Check**
+
+```bash
+#!/bin/bash
+# 0 * * * *
+
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health)
+if [ "$STATUS" = "200" ]; then
+  echo "Service is healthy"
+else
+  echo "Service health check failed: $STATUS"
+fi
+```
+
+**Example 2: Every 5 Minutes Log Check**
+
+```bash
+#!/bin/bash
+# */5 * * * *
+
+ERROR_COUNT=$(grep -c "ERROR" /var/log/app.log)
+echo "Current error count: $ERROR_COUNT"
+```
+
 ### Sidecar Containers for Utility Tools
 
 Scripts can invoke CLI tools from optional sidecar containers running in the same pod. Utilities are installed to a **shared volume** (`/opt/microcron-tools`) so the main container can directly access them.
@@ -244,31 +269,6 @@ kubectl exec deployment/microcron-ce -n microcron-ce -- \
 - Verify PVC is bound: `kubectl get pvc`
 - Check pod volume mounts: `kubectl describe pod <pod-name>`
 
-## Examples
-
-### Example 1: Hourly Health Check
-
-```bash
-#!/bin/bash
-# 0 * * * *
-
-STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health)
-if [ "$STATUS" = "200" ]; then
-  echo "Service is healthy"
-else
-  echo "Service health check failed: $STATUS"
-fi
-```
-
-### Example 2: Every 5 Minutes Log Check
-
-```bash
-#!/bin/bash
-# */5 * * * *
-
-ERROR_COUNT=$(grep -c "ERROR" /var/log/app.log)
-echo "Current error count: $ERROR_COUNT"
-```
 
 ## Publishing & Development (contributors only section)
 
