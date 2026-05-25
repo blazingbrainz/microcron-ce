@@ -35,7 +35,7 @@ Microcron-CE solves the problem of running scheduled tasks in Kubernetes environ
 # 1. Create namespace
 kubectl create namespace microcron-ce
 
-# 2. Create image pull secret (if private registry)
+# 2. Create image pull secret 
 kubectl create secret docker-registry ghcr-secret \
   --docker-server=ghcr.io \
   --docker-username=YOUR_GITHUB_USERNAME \
@@ -135,16 +135,6 @@ permissions are required.
 
 Both available at GitHub Container Registry (GHCR)
 
-## Configuration
-
-### Command-Line Flags
-
-```
---namespace=default           # Kubernetes namespace for ConfigMaps
---configmap=microcron-scripts # Name of ConfigMap with scripts
---log-dir=/var/log/microcron  # Directory for log files
---retention-days=7            # Days to retain log files
-```
 
 ### Helm Values
 
