@@ -86,25 +86,7 @@ Examples:
 - `# 0 0 1 * *` - First day of every month
 
 
-**Optional Secret Reference** (new): The second non-shebang comment line can specify Kubernetes secrets:
-
-
-```bash
-#!/bin/bash
-# 0 * * * *
-# my-db-secret: DB_USER, DB_PASS, DB_HOST
-
-echo "Connecting as $DB_USER to $DB_HOST"
-```
-
-
-Format: `# <secretname>: <key1>, <key2>, ..., <keyN>`
-
-The secret must be pre-created in the same namespace and mounted via `secretMounts` in values.yaml. The referenced keys are loaded as environment variables into the 
-script.
-
-
-### Secrets Management
+### Secrets Management for scripts which need to reference a secret
 
 
 Scripts can optionally reference Kubernetes opaque secrets to access sensitive values like passwords and API keys.
