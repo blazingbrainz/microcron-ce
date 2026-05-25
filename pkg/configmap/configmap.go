@@ -9,10 +9,16 @@ import (
 	"time"
 )
 
+type SecretRef struct {
+	Name string
+	Keys []string
+}
+
 type Script struct {
-	Name     string
-	Content  string
-	Schedule string
+	Name       string
+	Content    string
+	Schedule   string
+	SecretRefs []SecretRef
 }
 
 type Loader struct {
@@ -55,27 +61,36 @@ func (l *Loader) LoadScripts(ctx context.Context) ([]*Script, error) {
 		}
 
 		contentStr := string(content)
-		schedule, err := extractSchedule(contentStr)
+		schedule, scheduleLineIdx, err := extractScheduleWithIdx(contentStr)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: Failed to extract schedule from script %s: %v\n", entry.Name(), err)
 			continue
 		}
 
-		scripts = append(scripts, &Script{
+		script := &Script{
 			Name:     entry.Name(),
 			Content:  contentStr,
 			Schedule: schedule,
-		})
+		}
+
+		if scheduleLineIdx >= 0 {
+			secretRef := extractSecretRef(contentStr, scheduleLineIdx)
+			if secretRef != nil {
+				script.SecretRefs = []SecretRef{*secretRef}
+			}
+		}
+
+		scripts = append(scripts, script)
 	}
 
 	return scripts, nil
 }
 
-// extractSchedule extracts the cron schedule from the first commented line.
-func extractSchedule(content string) (string, error) {
+// extractSchedule extracts the cron schedule from the first commented line and returns its line index.
+func extractScheduleWithIdx(content string) (string, int, error) {
 	lines := strings.Split(content, "\n")
 	if len(lines) < 1 {
-		return "", fmt.Errorf("empty script content")
+		return "", -1, fmt.Errorf("empty script content")
 	}
 
 	startIdx := 0
@@ -89,12 +104,74 @@ func extractSchedule(content string) (string, error) {
 			schedule := strings.TrimSpace(line[1:])
 			fields := strings.Fields(schedule)
 			if len(fields) == 5 {
-				return schedule, nil
+				return schedule, i, nil
 			}
 		}
 	}
 
-	return "", fmt.Errorf("no valid cron schedule found in script")
+	return "", -1, fmt.Errorf("no valid cron schedule found in script")
+}
+
+// extractSchedule extracts the cron schedule from the first commented line.
+func extractSchedule(content string) (string, error) {
+	schedule, _, err := extractScheduleWithIdx(content)
+	return schedule, err
+}
+
+// extractSecretRef extracts the optional secret reference from the line after the schedule.
+// Format: # secretname: key1, key2, key3
+func extractSecretRef(content string, scheduleLineIdx int) *SecretRef {
+	lines := strings.Split(content, "\n")
+
+	if scheduleLineIdx < 0 || scheduleLineIdx >= len(lines)-1 {
+		return nil
+	}
+
+	for i := scheduleLineIdx + 1; i < len(lines); i++ {
+		line := strings.TrimSpace(lines[i])
+		if line == "" {
+			continue
+		}
+		if !strings.HasPrefix(line, "#") {
+			return nil
+		}
+
+		content := strings.TrimSpace(line[1:])
+		if !strings.Contains(content, ":") {
+			return nil
+		}
+
+		parts := strings.SplitN(content, ":", 2)
+		if len(parts) != 2 {
+			return nil
+		}
+
+		name := strings.TrimSpace(parts[0])
+		keysStr := strings.TrimSpace(parts[1])
+
+		if name == "" || keysStr == "" {
+			return nil
+		}
+
+		var keys []string
+		for _, key := range strings.Split(keysStr, ",") {
+			key = strings.TrimSpace(key)
+			if key != "" {
+				keys = append(keys, key)
+			}
+		}
+
+		if len(keys) == 0 {
+			return nil
+		}
+
+		return &SecretRef{
+			Name: name,
+			Keys: keys,
+		}
+	}
+
+	return nil
 }
 
 // WatchScripts watches for changes to the ConfigMap by polling the mounted directory.
@@ -139,6 +216,30 @@ func scriptsEqual(a, b []*Script) bool {
 	for i := range a {
 		if a[i].Name != b[i].Name || a[i].Content != b[i].Content || a[i].Schedule != b[i].Schedule {
 			return false
+		}
+		if !secretRefsEqual(a[i].SecretRefs, b[i].SecretRefs) {
+			return false
+		}
+	}
+	return true
+}
+
+// secretRefsEqual checks if two SecretRef slices are equal.
+func secretRefsEqual(a, b []SecretRef) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].Name != b[i].Name {
+			return false
+		}
+		if len(a[i].Keys) != len(b[i].Keys) {
+			return false
+		}
+		for j := range a[i].Keys {
+			if a[i].Keys[j] != b[i].Keys[j] {
+				return false
+			}
 		}
 	}
 	return true

@@ -30,7 +30,7 @@ microcron-ce/
 │   │   └── executor.go          # Script execution engine
 │   └── logger/
 │       └── logger.go            # Log rotation handler
-├── helm/                        # Helm chart v0.1.0           
+├── helm/                        # Helm chart v0.2.0           
 │   ├── Chart.yaml
 │   ├── values.yaml
 │   ├── templates/
@@ -95,7 +95,7 @@ Scripts in ConfigMaps must follow this format:
 echo "Script executed at $(date)"
 ```
 
-The first non-shebang comment line must contain a valid 5-field cron expression:
+**Cron Schedule Line**: The first non-shebang comment line must contain a valid 5-field cron expression:
 - Minute (0-59)
 - Hour (0-23)
 - Day of Month (1-31)
@@ -107,6 +107,56 @@ Examples:
 - `# 0 2 * * *` - Every day at 2 AM
 - `# */5 * * * *` - Every 5 minutes
 - `# 0 0 1 * *` - First day of every month
+
+**Optional Secret Reference** (new): The second non-shebang comment line can specify Kubernetes secrets:
+
+```bash
+#!/bin/bash
+# 0 * * * *
+# my-db-secret: DB_USER, DB_PASS, DB_HOST
+
+echo "Connecting as $DB_USER to $DB_HOST"
+```
+
+Format: `# <secretname>: <key1>, <key2>, ..., <keyN>`
+
+The secret must be pre-created in the same namespace and mounted via `secretMounts` in values.yaml. The referenced keys are loaded as environment variables into the script.
+
+### Secrets Management
+
+Scripts can reference Kubernetes opaque secrets to access sensitive values like passwords and API keys.
+
+**Creating a Secret**:
+
+```bash
+kubectl create secret generic my-db-secret \
+  --from-literal=DB_USER=admin \
+  --from-literal=DB_PASS=s3cr3t \
+  --from-literal=DB_HOST=postgres.svc \
+  -n microcron-ce
+```
+
+**Configuring Secret Mounts** (in `values.yaml`):
+
+```yaml
+secretMounts:
+  - name: my-db-secret
+  - name: api-credentials
+```
+
+**Using Secrets in Scripts**:
+
+```bash
+#!/bin/bash
+# 0 * * * *
+# my-db-secret: DB_USER, DB_PASS, DB_HOST
+
+psql -h "$DB_HOST" -U "$DB_USER" -c "SELECT version();" << EOF
+$DB_PASS
+EOF
+```
+
+Each referenced key is available as an environment variable. The secret keys must match exactly (case-sensitive). Mounted secrets are read-only; no Kubernetes RBAC permissions are required.
 
 ## Getting Started
 
@@ -131,10 +181,10 @@ kubectl create secret docker-registry ghcr-secret \
   -n microcron-ce
 
 # 3. Add Helm repo and install
-helm pull oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce --version 0.1.0
+helm pull oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce --version 0.2.0
 
 # 4. Install chart
-helm install microcron-ce ./microcron-ce-0.1.0.tgz \
+helm install microcron-ce ./microcron-ce-0.2.0.tgz \
   --namespace microcron-ce \
   --set image.repository=ghcr.io/blazingbrainz/microcron-ce \
   --set image.pullPolicy=IfNotPresent
@@ -149,7 +199,7 @@ kubectl logs -f deployment/microcron-ce -n microcron-ce
 **Production Deployment**
 ```bash
 helm install microcron-ce oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce \
-  --version 0.1.0 \
+  --version 0.2.0 \
   --namespace production \
   --create-namespace \
   --values values-production.yaml
@@ -158,7 +208,7 @@ helm install microcron-ce oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce \
 **Development Deployment**
 ```bash
 helm install microcron-ce oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce \
-  --version 0.1.0 \
+  --version 0.2.0 \
   --namespace dev \
   --create-namespace \
   --set logging.retentionDays=3 \
@@ -167,8 +217,8 @@ helm install microcron-ce oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce \
 
 ### Container Images
 
-**Docker Image**: `ghcr.io/blazingbrainz/microcron-ce:0.1.0`
-**Helm Chart**: `oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce:0.1.0`
+**Docker Image**: `ghcr.io/blazingbrainz/microcron-ce:0.2.0`
+**Helm Chart**: `oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce:0.2.0`
 
 Both available at GitHub Container Registry (GHCR)
 
@@ -193,7 +243,7 @@ replicaCount: 1
 image:
   repository: ghcr.io/blazingbrainz/microcron-ce
   pullPolicy: IfNotPresent
-  tag: "0.1.0"
+  tag: "0.2.0"
 
 imagePullSecrets: []
   # - name: ghcr-secret
@@ -222,7 +272,7 @@ resources:
 
 The Helm chart includes:
 
-- **Chart.yaml**: Chart metadata (v0.1.0)
+- **Chart.yaml**: Chart metadata (v0.2.0)
 - **values.yaml**: Default configuration
 - **values-production.yaml**: Production example
 - **Deployment**: Main pod deployment with init containers and health checks
@@ -236,7 +286,7 @@ The Helm chart includes:
 **Install from OCI Registry**
 ```bash
 helm install microcron-ce oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce \
-  --version 0.1.0 \
+  --version 0.2.0 \
   --namespace microcron-ce \
   --create-namespace
 ```
@@ -376,15 +426,15 @@ echo YOUR_GITHUB_PAT | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-s
 
 # 2. Build and push Docker image
 #    update namespace if needed
-docker build -t ghcr.io/blazingbrainz/microcron-ce:0.1.0 .
-docker push ghcr.io/blazingbrainz/microcron-ce:0.1.0
+docker build -t ghcr.io/blazingbrainz/microcron-ce:0.2.0 .
+docker push ghcr.io/blazingbrainz/microcron-ce:0.2.0
 
 # 3. Push Helm chart as OCI artifact using oras
 #    Update namespace to your own/target namespace
 cd helm
 oras login -u YOUR_GITHUB_USERNAME -p YOUR_GITHUB_PAT ghcr.io
-oras push ghcr.io/blazingbrainz/helm-charts/microcron-ce:0.1.0 \
-  microcron-ce-0.1.0.tgz:application/vnd.cncf.helm.chart.v1.tar+gzip
+oras push ghcr.io/blazingbrainz/helm-charts/microcron-ce:0.2.0 \
+  microcron-ce-0.2.0.tgz:application/vnd.cncf.helm.chart.v1.tar+gzip
 
 # 4. Verify both are published
 docker images | grep microcron-ce
@@ -412,7 +462,7 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 ## Roadmap
 
 Future enhancements:
-- [ ] Tokenized secrets in scripts via Kubernetes Secrets
+- [x] Tokenized secrets in scripts via Kubernetes Secrets
 - [ ] Job execution history and metrics
 - [ ] Prometheus metrics export
 - [ ] Script execution timeout configuration

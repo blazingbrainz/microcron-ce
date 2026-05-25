@@ -3,6 +3,7 @@ package executor
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
 )
 
@@ -16,7 +17,8 @@ type ExecutionResult struct {
 }
 
 // Execute runs a shell script and returns the output.
-func Execute(scriptName string, scriptContent string) *ExecutionResult {
+// extraEnv is an optional map of environment variables to pass to the script.
+func Execute(scriptName string, scriptContent string, extraEnv map[string]string) *ExecutionResult {
 	result := &ExecutionResult{
 		ScriptName: scriptName,
 	}
@@ -26,6 +28,14 @@ func Execute(scriptName string, scriptContent string) *ExecutionResult {
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
+
+	if len(extraEnv) > 0 {
+		env := os.Environ()
+		for key, value := range extraEnv {
+			env = append(env, key+"="+value)
+		}
+		cmd.Env = env
+	}
 
 	err := cmd.Run()
 	result.Stdout = stdout.String()

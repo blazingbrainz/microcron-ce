@@ -7,7 +7,7 @@ replicaCount: 1
 image:
   repository: ghcr.io/blazingbrainz/microcron-ce
   pullPolicy: IfNotPresent
-  tag: "0.1.0"
+  tag: "0.2.0"
 
 # Image pull secrets (required for private GHCR)
 imagePullSecrets: []
@@ -80,6 +80,15 @@ env:
   - name: TZ
     value: UTC
 
+# Optional: List of Kubernetes opaque secrets to mount for use in scripts.
+# Each secret is mounted at /etc/microcron-ce/secrets/<name>/.
+# Reference in scripts with: # secretname: KEY1, KEY2
+secretMounts: []
+# Example:
+# secretMounts:
+#   - name: my-db-secret
+#   - name: api-credentials
+
 # Liveness and readiness probes
 livenessProbe:
   initialDelaySeconds: 30
@@ -99,6 +108,7 @@ debug: false
 # Scripts to include in the ConfigMap
 # Each key becomes a script file mounted at /etc/microcron-ce/scripts/<key>
 # The first comment line (after shebang) should be the cron schedule: # * * * * *
+# Optional: The second comment line can specify secrets: # secretname: KEY1, KEY2
 scripts:
   health-check.sh: |
     #!/bin/bash
@@ -112,3 +122,10 @@ scripts:
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] This is an example cron job"
     echo "Running at the top of every hour"
     echo "Script executed successfully!"
+
+  # Example script using secrets (uncomment to use)
+  # example-with-secrets.sh: |
+  #   #!/bin/bash
+  #   # 0 * * * *
+  #   # my-db-secret: DB_USER, DB_PASS, DB_HOST
+  #   echo "Connecting to database at $DB_HOST as $DB_USER"

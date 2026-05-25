@@ -75,6 +75,11 @@ spec:
         - name: scripts
           mountPath: /etc/microcron-ce/scripts
           readOnly: true
+        {{- range .Values.secretMounts }}
+        - name: secret-{{ .name }}
+          mountPath: /etc/microcron-ce/secrets/{{ .name }}
+          readOnly: true
+        {{- end }}
         {{- if .Values.persistence.enabled }}
         - name: logs
           mountPath: {{ .Values.logging.logDir }}
@@ -83,6 +88,11 @@ spec:
       - name: scripts
         configMap:
           name: {{ .Values.configMapName }}
+      {{- range .Values.secretMounts }}
+      - name: secret-{{ .name }}
+        secret:
+          secretName: {{ .name }}
+      {{- end }}
       {{- if .Values.persistence.enabled }}
       - name: logs
         persistentVolumeClaim:

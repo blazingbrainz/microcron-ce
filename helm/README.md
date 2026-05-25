@@ -57,9 +57,10 @@ helm install microcron-ce ./helm/microcron-ce \
 |-----------|-------------|---------|
 | `replicaCount` | Number of replicas | `1` |
 | `image.repository` | Container image repository | `blazingbrainz/microcron-ce` |
-| `image.tag` | Container image tag | `0.1.0` |
+| `image.tag` | Container image tag | `0.2.0` |
 | `namespace` | Kubernetes namespace for ConfigMap | `default` |
 | `configMapName` | Name of ConfigMap with scripts | `microcron-scripts` |
+| `secretMounts` | List of secrets to mount (by name) | `[]` |
 | `logging.retentionDays` | Days to retain log files | `7` |
 | `persistence.enabled` | Enable persistent volume for logs | `true` |
 | `persistence.size` | PVC size | `10Gi` |
@@ -87,8 +88,46 @@ The format is:
 ```
 #!/bin/bash
 # MINUTE HOUR DAY MONTH DAY_OF_WEEK
+# [optional] secretname: KEY1, KEY2
 script content...
 ```
+
+## Script Secrets
+
+Scripts can reference Kubernetes opaque secrets to access sensitive data.
+
+### Creating and Using Secrets
+
+1. **Create a Kubernetes secret**:
+```bash
+kubectl create secret generic db-credentials \
+  --from-literal=DB_USER=admin \
+  --from-literal=DB_PASS=password123 \
+  -n microcron-ce
+```
+
+2. **Configure secret mounts in values.yaml**:
+```yaml
+secretMounts:
+  - name: db-credentials
+```
+
+3. **Use the secret in a script**:
+```bash
+#!/bin/bash
+# 0 * * * *
+# db-credentials: DB_USER, DB_PASS
+
+echo "Database user is $DB_USER"
+```
+
+4. **Deploy with the updated values**:
+```bash
+helm upgrade microcron-ce ./helm/microcron-ce \
+  -f values.yaml
+```
+
+The referenced keys become environment variables in the script context.
 
 ### Create ConfigMap with Scripts
 

@@ -3,6 +3,9 @@ package cron
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/blazingbrainz/microcron-ce/pkg/configmap"
@@ -10,6 +13,28 @@ import (
 	"github.com/blazingbrainz/microcron-ce/pkg/logger"
 	cronlib "github.com/robfig/cron/v3"
 )
+
+const secretMountBase = "/etc/microcron-ce/secrets"
+
+// loadSecretEnvVars loads secret values from mounted volumes and returns them as a map.
+func loadSecretEnvVars(logger *logger.RotatingLogger, refs []configmap.SecretRef) map[string]string {
+	envVars := make(map[string]string)
+
+	for _, ref := range refs {
+		mountPath := filepath.Join(secretMountBase, ref.Name)
+		for _, key := range ref.Keys {
+			filePath := filepath.Join(mountPath, key)
+			data, err := os.ReadFile(filePath)
+			if err != nil {
+				logger.Log(fmt.Sprintf("Warning: Failed to load secret %s key %s: %v", ref.Name, key, err))
+				continue
+			}
+			envVars[key] = strings.TrimSpace(string(data))
+		}
+	}
+
+	return envVars
+}
 
 // Scheduler manages cron job scheduling and execution.
 type Scheduler struct {
@@ -52,9 +77,10 @@ func (s *Scheduler) AddJob(script *configmap.Script) error {
 		delete(s.jobs, script.Name)
 	}
 
-	// Create a job function that captures the script content
+	// Create a job function that captures the script content and secrets
 	jobFunc := func() {
-		result := executor.Execute(script.Name, script.Content)
+		secretEnv := loadSecretEnvVars(s.logger, script.SecretRefs)
+		result := executor.Execute(script.Name, script.Content, secretEnv)
 		s.logger.Log(executor.FormatResult(result))
 	}
 
@@ -117,12 +143,13 @@ func (s *Scheduler) UpdateJobs(scripts []*configmap.Script) error {
 		}
 
 		// Add the job
-		jobFunc := func(scriptContent string, scriptName string) func() {
+		jobFunc := func(scriptContent string, scriptName string, secretRefs []configmap.SecretRef) func() {
 			return func() {
-				result := executor.Execute(scriptName, scriptContent)
+				secretEnv := loadSecretEnvVars(s.logger, secretRefs)
+				result := executor.Execute(scriptName, scriptContent, secretEnv)
 				s.logger.Log(executor.FormatResult(result))
 			}
-		}(script.Content, script.Name)
+		}(script.Content, script.Name, script.SecretRefs)
 
 		entryID, err := s.cron.AddFunc(script.Schedule, jobFunc)
 		if err != nil {

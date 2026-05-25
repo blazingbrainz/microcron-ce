@@ -4,10 +4,10 @@ description: A Kubernetes-native cron job runner with full expression support an
 type: application
 
 # Chart version (increment for releases)
-version: 0.1.0
+version: 0.2.0
 
 # Application version (the version of microcron-ce being packaged)
-appVersion: "0.1.0"
+appVersion: "0.2.0"
 
 # Metadata
 home: https://github.com/blazingbrainz/microcron-ce
