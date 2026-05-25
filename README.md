@@ -31,6 +31,15 @@ Microcron-CE solves the problem of generic scheduled tasks managemet in Giitops 
 
 ## Getting Started
 
+### Container Images and Chart
+
+
+**Micron Docker Image**: `ghcr.io/blazingbrainz/microcron-ce:0.2.1`
+**Micron utilities sidecar Docker Image**: `ghcr.io/blazingbrainz/microcron-ce-utilities:0.2.1`
+**Helm Chart**: `oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce:0.2.1`
+
+All available at GitHub Container Registry (GHCR)
+
 ### Quick Start - Deploy from OCI Registry
 
 ```bash
@@ -134,14 +143,6 @@ permissions are required.
 Scripts can invoke CLI tools from optional sidecar containers running in the same pod. Utilities are installed to a **shared volume** (`/opt/microcron-tools`) so the main container can directly access them.
 
 See [helm/README.md](helm/README.md#sidecar-containers-for-utility-tools) for detailed sidecar configuration and custom image creation.
-
-### Container Images
-
-**Docker Image**: `ghcr.io/blazingbrainz/microcron-ce:0.2.1`
-
-**Helm Chart**: `oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce:0.2.1`
-
-Both available at GitHub Container Registry (GHCR)
 
 
 ### Helm Values
