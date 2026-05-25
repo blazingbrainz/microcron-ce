@@ -420,28 +420,73 @@ helm package .
 - GitHub Personal Access Token with `write:packages` permission
 - `docker` and `oras` CLI tools installed
 
+#### Step 1: Build and Push Docker Image
+
 ```bash
-# 1. Authenticate to GHCR
+# Authenticate to GHCR
 echo YOUR_GITHUB_PAT | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
 
-# 2. Build and push Docker image
-#    update namespace if needed
+# Build and push Docker image
+docker build -t ghcr.io/blazingbrainz/microcron-ce:0.2.0 .
+docker push ghcr.io/blazingbrainz/microcron-ce:0.2.0
+```
+
+#### Step 2: Package Helm Chart as OCI Artifact
+
+```bash
+cd helm
+
+# Package the Helm chart
+helm package .
+# Output: microcron-ce-0.2.0.tgz
+```
+
+#### Step 3: Push Helm Chart as OCI Artifact using oras
+
+```bash
+# Authenticate to GHCR with oras
+oras login -u YOUR_GITHUB_USERNAME -p YOUR_GITHUB_PAT ghcr.io
+
+# Push the packaged chart as OCI artifact
+# Update namespace to your own/target namespace
+oras push ghcr.io/blazingbrainz/helm-charts/microcron-ce:0.2.0 \
+  microcron-ce-0.2.0.tgz:application/vnd.cncf.helm.chart.v1.tar+gzip
+```
+
+#### Step 4: Verify Publishing
+
+```bash
+# Verify Docker image
+docker images | grep microcron-ce
+
+# Verify Helm chart OCI artifact
+oras repo tags ghcr.io/blazingbrainz/helm-charts/microcron-ce
+```
+
+#### Full Publishing Workflow
+
+```bash
+# 1. Build and push Docker image
 docker build -t ghcr.io/blazingbrainz/microcron-ce:0.2.0 .
 docker push ghcr.io/blazingbrainz/microcron-ce:0.2.0
 
-# 3. Push Helm chart as OCI artifact using oras
-#    Update namespace to your own/target namespace
+# 2. Package and push Helm chart
 cd helm
+helm package .
 oras login -u YOUR_GITHUB_USERNAME -p YOUR_GITHUB_PAT ghcr.io
 oras push ghcr.io/blazingbrainz/helm-charts/microcron-ce:0.2.0 \
   microcron-ce-0.2.0.tgz:application/vnd.cncf.helm.chart.v1.tar+gzip
 
-# 4. Verify both are published
+# 3. Verify both artifacts
 docker images | grep microcron-ce
 oras repo tags ghcr.io/blazingbrainz/helm-charts/microcron-ce
 ```
 
-**Note**: Use `oras` instead of `helm push` for reliable OCI artifact publishing to GHCR.
+**Notes**:
+- Use `oras` instead of `helm push` for reliable OCI artifact publishing to GHCR
+- `helm package` creates a `.tgz` file that can be pushed as an OCI artifact
+- The media type `application/vnd.cncf.helm.chart.v1.tar+gzip` identifies it as a Helm chart
+- Ensure the chart version in `Chart.yaml` matches your release version tag
 
 
 ## License
@@ -451,7 +496,6 @@ MIT License - See LICENSE file for details
 ## Support
 
 For issues, questions, or feature requests, please contact:
-- Email:  mailfrmsoyuz@rocketmail.com
 - Issues: GitHub Issues
 
 ## Changelog
@@ -462,7 +506,6 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 ## Roadmap
 
 Future enhancements:
-- [x] Tokenized secrets in scripts via Kubernetes Secrets
 - [ ] Job execution history and metrics
 - [ ] Prometheus metrics export
 - [ ] Script execution timeout configuration
