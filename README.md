@@ -26,89 +26,8 @@ Microcron-CE solves the problem of running scheduled tasks in Kubernetes environ
 ✅ **Health Checks**: Liveness and readiness probes  
 ✅ **Production Ready**: Multi-stage Docker build, resource limits, minimal footprint
 
-### Cron Script Format - to be loaded via configmap
-
-Scripts in ConfigMaps must follow this format:
-
-```bash
-#!/bin/bash
-# 0 * * * *
-
-# Your script content here
-echo "Script executed at $(date)"
-```
-
-**Cron Schedule Line**: The first non-shebang comment line must contain a valid 5-field cron expression:
-- Minute (0-59)
-- Hour (0-23)
-- Day of Month (1-31)
-- Month (1-12)
-- Day of Week (0-6, where 0=Sunday)
-
-Examples:
-- `# 0 * * * *` - Top of every hour
-- `# 0 2 * * *` - Every day at 2 AM
-- `# */5 * * * *` - Every 5 minutes
-- `# 0 0 1 * *` - First day of every month
-
-**Optional Secret Reference** (new): The second non-shebang comment line can specify Kubernetes secrets:
-
-```bash
-#!/bin/bash
-# 0 * * * *
-# my-db-secret: DB_USER, DB_PASS, DB_HOST
-
-echo "Connecting as $DB_USER to $DB_HOST"
-```
-
-Format: `# <secretname>: <key1>, <key2>, ..., <keyN>`
-
-The secret must be pre-created in the same namespace and mounted via `secretMounts` in values.yaml. The referenced keys are loaded as environment variables into the script.
-
-### Secrets Management
-
-Scripts can optionally reference Kubernetes opaque secrets to access sensitive values like passwords and API keys.
-
-**Creating a Secret**:
-
-```bash
-kubectl create secret generic my-db-secret \
-  --from-literal=DB_USER=admin \
-  --from-literal=DB_PASS=s3cr3t \
-  --from-literal=DB_HOST=postgres.svc \
-  -n microcron-ce
-```
-
-**Configuring Secret Mounts** (in `values.yaml`):
-
-```yaml
-secretMounts:
-  - name: my-db-secret
-  - name: api-credentials
-```
-
-**Using Secrets in Scripts**:
-
-```bash
-#!/bin/bash
-# 0 * * * *
-# my-db-secret: DB_USER, DB_PASS, DB_HOST
-
-psql -h "$DB_HOST" -U "$DB_USER" -c "SELECT version();" << EOF
-$DB_PASS
-EOF
-```
-
-Each referenced key is available as an environment variable. The secret keys must match exactly (case-sensitive). Mounted secrets are read-only; no Kubernetes RBAC permissions are required.
 
 ## Getting Started
-
-### Prerequisites
-
-- Kubernetes 1.24+
-- Helm 3.7+ (for OCI registry support)
-- kubectl configured with cluster access
-- GitHub Personal Access Token (for pulling from ghcr.io)
 
 ### Quick Start - Deploy from OCI Registry
 
@@ -137,26 +56,95 @@ kubectl get pods -n microcron-ce
 kubectl logs -f deployment/microcron-ce -n microcron-ce
 ```
 
-### Deployment Examples
 
-**Production Deployment**
+### Cron Script Format - to be loaded via configmap
+
+Scripts in ConfigMaps must follow this format:
+
 ```bash
-helm install microcron-ce oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce \
-  --version 0.2.0 \
-  --namespace production \
-  --create-namespace \
-  --values values-production.yaml
+#!/bin/bash
+# 0 * * * *
+
+
+# Your script content here
+echo "Script executed at $(date)"
 ```
 
-**Development Deployment**
+
+**Cron Schedule Line**: The first non-shebang comment line must contain a valid 5-field cron expression:
+- Minute (0-59)
+- Hour (0-23)
+- Day of Month (1-31)
+- Month (1-12)
+- Day of Week (0-6, where 0=Sunday)
+
+
+Examples:
+- `# 0 * * * *` - Top of every hour
+- `# 0 2 * * *` - Every day at 2 AM
+- `# */5 * * * *` - Every 5 minutes
+- `# 0 0 1 * *` - First day of every month
+
+
+**Optional Secret Reference** (new): The second non-shebang comment line can specify Kubernetes secrets:
+
+
 ```bash
-helm install microcron-ce oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce \
-  --version 0.2.0 \
-  --namespace dev \
-  --create-namespace \
-  --set logging.retentionDays=3 \
-  --set persistence.enabled=false
+#!/bin/bash
+# 0 * * * *
+# my-db-secret: DB_USER, DB_PASS, DB_HOST
+
+echo "Connecting as $DB_USER to $DB_HOST"
 ```
+
+
+Format: `# <secretname>: <key1>, <key2>, ..., <keyN>`
+
+The secret must be pre-created in the same namespace and mounted via `secretMounts` in values.yaml. The referenced keys are loaded as environment variables into the 
+script.
+
+
+### Secrets Management
+
+
+Scripts can optionally reference Kubernetes opaque secrets to access sensitive values like passwords and API keys.
+
+
+**Creating a Secret**:
+
+```bash
+kubectl create secret generic my-db-secret \
+  --from-literal=DB_USER=admin \
+  --from-literal=DB_PASS=s3cr3t \
+  --from-literal=DB_HOST=postgres.svc \
+  -n microcron-ce
+```
+
+**Configuring Secret Mounts** (in `values.yaml`):
+
+
+```yaml
+secretMounts:
+  - name: my-db-secret
+  - name: api-credentials
+```
+
+
+**Using Secrets in Scripts**:
+
+```bash
+#!/bin/bash
+# 0 * * * *
+# my-db-secret: DB_USER, DB_PASS, DB_HOST
+
+psql -h "$DB_HOST" -U "$DB_USER" -c "SELECT version();" << EOF
+$DB_PASS
+EOF
+```
+
+Each referenced key is available as an environment variable. The secret keys must match exactly (case-sensitive). Mounted secrets are read-only; no Kubernetes RBAC 
+permissions are required.
+
 
 ### Container Images
 
@@ -209,41 +197,6 @@ resources:
   limits:
     memory: 512Mi
     cpu: 500m
-```
-
-## Helm Chart Details
-
-The Helm chart includes:
-
-- **Chart.yaml**: Chart metadata (v0.2.0)
-- **values.yaml**: Default configuration
-- **values-production.yaml**: Production example
-- **Deployment**: Main pod deployment with init containers and health checks
-- **ServiceAccount**: RBAC identity
-- **ClusterRole/ClusterRoleBinding**: Permissions to read ConfigMaps
-- **PersistentVolumeClaim**: Optional log storage
-- **ConfigMap**: template for script cofigmap
-
-### Helm Chart Management
-
-**Install from OCI Registry**
-```bash
-helm install microcron-ce oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce \
-  --version 0.2.0 \
-  --namespace microcron-ce \
-  --create-namespace
-```
-
-**Upgrade to newer version**
-```bash
-helm upgrade microcron-ce oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce \
-  --version 0.1.1 \
-  --namespace microcron-ce
-```
-
-**Uninstall**
-```bash
-helm uninstall microcron-ce -n microcron-ce
 ```
 
 ## Security
@@ -350,7 +303,7 @@ MIT License - See LICENSE file for details
 
 ## Support
 
-For issues, questions, or feature requests, please contact:
+For issues, questions, or feature requests, please use:
 - Issues: GitHub Issues
 
 ## Changelog
