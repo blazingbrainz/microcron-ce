@@ -32,3 +32,8 @@ dist/
 
 # Helm
 *.tgz
+
+# Credentials (NEVER commit)
+.env
+.env.local
+.env.*.local

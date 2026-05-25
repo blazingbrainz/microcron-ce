@@ -396,7 +396,7 @@ echo "Current error count: $ERROR_COUNT"
 
 ### For Contributors - Building from Source
 
-**Prerequisites**: Go 1.26+, Docker, Helm 3.7+, oras
+**Prerequisites**: Go 1.26+, Docker, Helm 3.7+, oras, make
 
 ```bash
 # Clone and build
@@ -413,6 +413,99 @@ docker run ghcr.io/blazingbrainz/microcron-ce:dev
 cd helm
 helm package .
 ```
+
+### Using the Makefile for Publishing
+
+A `Makefile` automates the complete build and publish workflow. Versions are automatically extracted from `helm/Chart.yaml`.
+
+**👉 For detailed first-time setup and step-by-step instructions, see [MAKEFILE_SETUP.md](MAKEFILE_SETUP.md)**
+
+#### Prerequisites
+
+Ensure you have the following installed in WSL/Ubuntu:
+
+```bash
+# Install build tools
+sudo apt-get update
+sudo apt-get install -y make
+
+# Install Docker (if not already installed)
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+
+# Install Helm
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+# Install oras
+mkdir -p ~/bin
+cd ~/bin
+VERSION=1.1.0
+wget https://github.com/oras-project/oras/releases/download/v${VERSION}/oras_${VERSION}_linux_amd64.tar.gz
+tar xzf oras_${VERSION}_linux_amd64.tar.gz
+export PATH=$HOME/bin:$PATH
+echo 'export PATH=$HOME/bin:$PATH' >> ~/.bashrc
+```
+
+#### Makefile Usage
+
+**View available targets:**
+```bash
+make help
+```
+
+**Check versions:**
+```bash
+make versions
+```
+
+**Build Docker image only:**
+```bash
+make docker-build
+```
+
+**Package Helm chart only:**
+```bash
+make helm-package
+```
+
+**Full publish workflow** (build, package, and push to GHCR):
+```bash
+make publish GITHUB_USERNAME=your-username GITHUB_PAT=your-personal-access-token
+```
+
+#### What the Makefile Does
+
+1. Extracts app version from `helm/Chart.yaml` → used as Docker image tag
+2. Extracts chart version from `helm/Chart.yaml` → used as OCI artifact version
+3. Builds Docker image: `ghcr.io/blazingbrainz/microcron-ce:<appVersion>`
+4. Pushes Docker image to GHCR
+5. Packages Helm chart: `microcron-ce-<chartVersion>.tgz`
+6. Pushes Helm chart as OCI artifact: `oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce:<chartVersion>`
+
+#### Example Workflow (WSL/Ubuntu)
+
+```bash
+# Clone the repository
+git clone https://github.com/blazingbrainz/microcron-ce.git
+cd microcron-ce
+
+# Check current versions
+make versions
+
+# Build and publish everything
+make publish GITHUB_USERNAME=myuser GITHUB_PAT=ghp_xxxxxxxxxxxx
+
+# Clean up local artifacts
+make clean
+```
+
+#### Notes for WSL Users
+
+- The Makefile works natively in WSL/Ubuntu (no special configuration needed)
+- Docker Desktop for Windows integrates seamlessly with WSL
+- All POSIX commands (`make`, `sed`, `grep`) are available
+- Ensure Docker daemon is running before executing `make docker-build` or `make publish`
+- Use WSL 2 for better Docker performance
 
 ### Publishing to GHCR (optional - only for authors)
 
