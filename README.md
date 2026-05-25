@@ -303,4 +303,3 @@ Future enhancements:
 - [ ] Webhook notifications on job completion
 - [ ] React-based UI dashboard for job monitoring
 - [ ] SAML/OAuth role-based authentication
-- [ ] Ingress support
