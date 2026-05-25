@@ -4,7 +4,7 @@ A lightweight, cloud-native microservice for running scheduled bash/shell script
 
 ## Overview
 
-Microcron-CE solves the problem of running scheduled tasks in Kubernetes environments. Build specifically for environments/organizations following k8s/container centric deployments. This microservice retains the familarity with the traditional bash scripts + cron syntax while taking full advantage for k8s infrastructures:
+Microcron-CE solves the problem of generic scheduled tasks managemet in Giitops centric Kubernetes environments. Build specifically for organizations following k8s/container centric but regulated deployments, where every code change needs to go through multiple stages. This microservice retains the familarity with the traditional bash scripts + cron syntax while taking full advantage for k8s infrastructures:
 
 - Loads scripts from Kubernetes ConfigMaps
 - Executes scripts according to cron schedules
