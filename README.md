@@ -33,10 +33,11 @@ Microcron-CE solves the problem of generic scheduled tasks managemet in Giitops 
 
 ### Container Images and Chart
 
-
-**Micron Docker Image**: `ghcr.io/blazingbrainz/microcron-ce:0.2.1`
-**Micron utilities sidecar Docker Image**: `ghcr.io/blazingbrainz/microcron-ce-utilities:0.2.1`
-**Helm Chart**: `oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce:0.2.1`
+| Release | Artifact | Image/Chart URL |
+|---------|----------|-----------------|
+| 0.2.1 | Microcron Docker | `ghcr.io/blazingbrainz/microcron-ce:0.2.1` |
+| 0.2.1 | Utilities Sidecar | `ghcr.io/blazingbrainz/microcron-ce-utilities:0.2.1` |
+| 0.2.1 | Helm Chart | `oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce:0.2.1` |
 
 All available at GitHub Container Registry (GHCR)
 
