@@ -1,4 +1,4 @@
-.PHONY: help versions docker-build docker-push helm-package helm-publish publish clean
+.PHONY: help versions docker-build docker-push utilities-build utilities-push helm-package helm-publish publish clean
 
 # Color output
 RED := \033[0;31m
@@ -19,6 +19,7 @@ CHART_VERSION := $(shell grep "^version:" $(CHART_FILE) | sed 's/version: \(.*\)
 
 # Build variables
 DOCKER_IMAGE := $(REGISTRY)/$(ORG)/$(APP_NAME):$(APP_VERSION)
+UTILITIES_IMAGE := $(REGISTRY)/$(ORG)/$(APP_NAME)-utilities:$(APP_VERSION)
 HELM_CHART := $(APP_NAME)-$(CHART_VERSION).tgz
 OCI_ARTIFACT := $(REGISTRY)/$(ORG)/$(HELM_REPO)/$(APP_NAME):$(CHART_VERSION)
 
@@ -73,6 +74,8 @@ help:
 	@echo "  $(GREEN)versions$(NC)          - Display app and chart versions"
 	@echo "  $(GREEN)docker-build$(NC)      - Build Docker image"
 	@echo "  $(GREEN)docker-push$(NC)       - Push Docker image to GHCR"
+	@echo "  $(GREEN)utilities-build$(NC)   - Build utilities sidecar image"
+	@echo "  $(GREEN)utilities-push$(NC)    - Push utilities sidecar image to GHCR"
 	@echo "  $(GREEN)helm-package$(NC)      - Package Helm chart as .tgz"
 	@echo "  $(GREEN)helm-publish$(NC)      - Publish Helm chart as OCI artifact"
 	@echo "  $(GREEN)publish$(NC)           - Build, package, and publish everything"
@@ -90,8 +93,9 @@ versions:
 	@echo "  App Version:       $(APP_VERSION)"
 	@echo "  Chart Version:     $(CHART_VERSION)"
 	@echo ""
-	@echo "$(GREEN)Docker Image:$(NC)"
-	@echo "  $(DOCKER_IMAGE)"
+	@echo "$(GREEN)Docker Images:$(NC)"
+	@echo "  Main:              $(DOCKER_IMAGE)"
+	@echo "  Utilities:         $(UTILITIES_IMAGE)"
 	@echo ""
 	@echo "$(GREEN)OCI Artifact:$(NC)"
 	@echo "  $(OCI_ARTIFACT)"
@@ -112,6 +116,23 @@ docker-push: docker-build
 	@echo "$(YELLOW)Pushing Docker image to GHCR...$(NC)"
 	docker push $(DOCKER_IMAGE)
 	@echo "$(GREEN)✓ Docker image pushed: $(DOCKER_IMAGE)$(NC)"
+	docker logout $(REGISTRY)
+
+utilities-build: versions
+	@echo "$(YELLOW)Building Utilities sidecar image: $(UTILITIES_IMAGE)$(NC)"
+	docker build -f Dockerfile.utilities -t $(UTILITIES_IMAGE) .
+	@echo "$(GREEN)✓ Utilities image built successfully$(NC)"
+
+utilities-push: utilities-build
+	@if [ -z "$(GITHUB_USERNAME)" ] || [ -z "$(GITHUB_PAT)" ]; then \
+		echo "$(RED)Error: GITHUB_USERNAME and GITHUB_PAT are required$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(YELLOW)Logging in to GHCR...$(NC)"
+	echo "$(GITHUB_PAT)" | docker login $(REGISTRY) -u $(GITHUB_USERNAME) --password-stdin
+	@echo "$(YELLOW)Pushing Utilities image to GHCR...$(NC)"
+	docker push $(UTILITIES_IMAGE)
+	@echo "$(GREEN)✓ Utilities image pushed: $(UTILITIES_IMAGE)$(NC)"
 	docker logout $(REGISTRY)
 
 helm-package: versions
@@ -151,6 +172,8 @@ publish: versions
 	@echo ""
 	@$(MAKE) docker-push GITHUB_USERNAME=$(GITHUB_USERNAME) GITHUB_PAT=$(GITHUB_PAT)
 	@echo ""
+	@$(MAKE) utilities-push GITHUB_USERNAME=$(GITHUB_USERNAME) GITHUB_PAT=$(GITHUB_PAT)
+	@echo ""
 	@$(MAKE) helm-publish GITHUB_USERNAME=$(GITHUB_USERNAME) GITHUB_PAT=$(GITHUB_PAT)
 	@echo ""
 	@echo "$(GREEN)========================================$(NC)"
@@ -158,11 +181,13 @@ publish: versions
 	@echo "$(GREEN)========================================$(NC)"
 	@echo ""
 	@echo "$(YELLOW)Artifacts Published:$(NC)"
-	@echo "  Docker Image: $(DOCKER_IMAGE)"
-	@echo "  OCI Artifact: $(OCI_ARTIFACT)"
+	@echo "  Docker Image:    $(DOCKER_IMAGE)"
+	@echo "  Utilities Image: $(UTILITIES_IMAGE)"
+	@echo "  OCI Artifact:    $(OCI_ARTIFACT)"
 	@echo ""
 	@echo "$(YELLOW)Pull commands:$(NC)"
 	@echo "  docker pull $(DOCKER_IMAGE)"
+	@echo "  docker pull $(UTILITIES_IMAGE)"
 	@echo "  helm pull oci://$(OCI_ARTIFACT)"
 	@echo ""
 

@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-05-25
+
+### Added
+- Sidecar containers support for utility tools
+- Shared volume (`/opt/microcron-tools`) for tool sharing between main and sidecar containers
+- Pre-built utilities Docker image with curl, wget, jq, awscli, psql, mysql, git, ssh
+- Makefile targets for building and publishing utilities sidecar image
+- Security context configuration for sidecars (non-root by default)
+
+### Changed
+- Main container PATH automatically includes sidecar tools when sidecars enabled
+- Improved security: sidecars run as 'nobody' user with dropped capabilities
+- Updated documentation with sidecar usage examples
+
+### Security
+- Sidecars run as non-root user (UID 65534)
+- Tools mounted read-only to main container
+- No additional RBAC permissions required
+
 ## [0.2.0] - 2026-05-25
 
 ### Added

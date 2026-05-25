@@ -5,7 +5,7 @@ replicaCount: 1
 image:
   repository: ghcr.io/blazingbrainz/microcron-ce
   pullPolicy: IfNotPresent
-  tag: "0.2.0"
+  tag: "0.2.1"
 
 namespace: production
 
@@ -92,6 +92,31 @@ secretMounts: []
 # secretMounts:
 #   - name: db-credentials
 #   - name: api-keys
+
+# Optional: Sidecar containers for utility tools
+# Includes: curl, wget, jq, awscli, postgresql-client, mysql-client, git, ssh
+sidecars: []
+# Example: Production-grade utilities image with security hardening
+# sidecars:
+#   - name: utilities
+#     image: ghcr.io/blazingbrainz/microcron-ce-utilities:0.2.1
+#     imagePullPolicy: IfNotPresent
+#     resources:
+#       requests:
+#         memory: 256Mi
+#         cpu: 100m
+#       limits:
+#         memory: 512Mi
+#         cpu: 500m
+#     # Security context (non-root user, dropped capabilities)
+#     securityContext:
+#       runAsNonRoot: true
+#       runAsUser: 65534  # 'nobody' user
+#       allowPrivilegeEscalation: false
+#       capabilities:
+#         drop:
+#           - ALL
+#       readOnlyRootFilesystem: false
 
 # Scripts to include in the ConfigMap
 scripts:

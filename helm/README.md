@@ -57,10 +57,11 @@ helm install microcron-ce ./helm/microcron-ce \
 |-----------|-------------|---------|
 | `replicaCount` | Number of replicas | `1` |
 | `image.repository` | Container image repository | `blazingbrainz/microcron-ce` |
-| `image.tag` | Container image tag | `0.2.0` |
+| `image.tag` | Container image tag | `0.2.1` |
 | `namespace` | Kubernetes namespace for ConfigMap | `default` |
 | `configMapName` | Name of ConfigMap with scripts | `microcron-scripts` |
 | `secretMounts` | List of secrets to mount (by name) | `[]` |
+| `sidecars` | List of sidecar containers | `[]` |
 | `logging.retentionDays` | Days to retain log files | `7` |
 | `persistence.enabled` | Enable persistent volume for logs | `true` |
 | `persistence.size` | PVC size | `10Gi` |
@@ -91,6 +92,167 @@ The format is:
 # [optional] secretname: KEY1, KEY2
 script content...
 ```
+
+## Sidecar Containers for Utility Tools
+
+The deployment supports optional sidecar containers that share all mounts with the main cron scheduler. This allows cron scripts to access CLI tools from sidecars.
+
+### Included Tools
+
+**Default utilities image includes:**
+- **Network**: curl, wget, jq, dnsutils
+- **AWS**: awscli
+- **Databases**: postgresql-client, mysql-client
+- **Utilities**: git, ssh, python3, bash
+
+### How Shared Tools Work
+
+When sidecars are enabled:
+1. A shared EmptyDir volume is created at `/opt/microcron-tools`
+2. Sidecars install utilities to `/opt/microcron-tools/bin`
+3. Main container mounts the same volume (read-only)
+4. Main container's PATH is automatically updated to include the tools
+5. Bash scripts can directly call tools: `curl`, `aws`, `psql`, `mysql`, `git`, etc.
+
+Sidecars are defined in `values.yaml` and automatically share:
+- Script volumes (ConfigMap)
+- Secret mounts
+- Log volumes
+- **Tools volume** (EmptyDir at `/opt/microcron-tools`)
+- Network namespace (can communicate via localhost)
+
+Example 1: **Use pre-built utilities image (recommended)**
+
+```yaml
+sidecars:
+  - name: utilities
+    image: ghcr.io/blazingbrainz/microcron-ce-utilities:0.2.1
+    imagePullPolicy: IfNotPresent
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 100m
+      limits:
+        memory: 512Mi
+        cpu: 500m
+```
+
+By default, sidecars run as the `nobody` user (UID 65534) with dropped capabilities for security.
+
+Example 2: **Production with explicit security context**
+
+```yaml
+sidecars:
+  - name: utilities
+    image: ghcr.io/blazingbrainz/microcron-ce-utilities:0.2.1
+    imagePullPolicy: IfNotPresent
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 100m
+      limits:
+        memory: 512Mi
+        cpu: 500m
+    # Explicit security context (non-root, no privilege escalation)
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 65534  # 'nobody' user
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+```
+
+Example 3: **Custom utilities image**
+
+```yaml
+sidecars:
+  - name: utilities
+    image: ghcr.io/yourusername/microcron-utilities:latest
+    imagePullPolicy: IfNotPresent
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 100m
+      limits:
+        memory: 512Mi
+        cpu: 500m
+```
+
+### Using Sidecar Tools in Scripts
+
+Tools from sidecars are **directly available** in the main container via a shared volume. The main container's PATH is automatically updated to include `/opt/microcron-tools/bin`.
+
+Example: **AWS CLI via sidecar**
+
+```bash
+#!/bin/bash
+# 0 * * * *
+
+# AWS CLI tools are directly available
+aws s3 ls > /var/log/microcron-ce/s3-listing.log
+aws ec2 describe-instances --region us-east-1
+```
+
+Example: **psql via sidecar**
+
+```bash
+#!/bin/bash
+# 0 2 * * *
+
+# PostgreSQL tools are directly available
+psql -h $DB_HOST -U $DB_USER -d $DB_NAME -c "SELECT COUNT(*) FROM users;" \
+  >> /var/log/microcron-ce/db-count.log
+```
+
+Example: **Multiple tools**
+
+```bash
+#!/bin/bash
+# 0 * * * *
+
+# Use curl to fetch data
+DATA=$(curl -s https://api.example.com/data)
+
+# Parse with jq
+COUNT=$(echo "$DATA" | jq '.items | length')
+
+# Store in database
+echo "Fetched $COUNT items" | psql -h $DB_HOST -U $DB_USER
+```
+
+### Creating a Custom Utilities Image
+
+To extend the utilities image with additional tools, create a custom Dockerfile:
+
+**Example Dockerfile** (add Azure CLI and Google Cloud CLI):
+
+```dockerfile
+FROM ghcr.io/blazingbrainz/microcron-ce-utilities:0.2.1
+
+# Add additional tools on top of base utilities
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    azure-cli \
+    google-cloud-cli \
+    && rm -rf /var/lib/apt/lists/*
+```
+
+Build and push:
+
+```bash
+docker build -t ghcr.io/yourusername/microcron-utilities:latest .
+docker push ghcr.io/yourusername/microcron-utilities:latest
+```
+
+Then reference in `values.yaml`:
+
+```yaml
+sidecars:
+  - name: utilities
+    image: ghcr.io/yourusername/microcron-utilities:latest
+```
+
+**Note**: The pre-built `microcron-ce-utilities` image is recommended as a base for custom images - it's optimized for cron script use cases.
 
 ## Script Secrets
 

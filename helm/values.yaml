@@ -7,7 +7,7 @@ replicaCount: 1
 image:
   repository: ghcr.io/blazingbrainz/microcron-ce
   pullPolicy: IfNotPresent
-  tag: "0.2.0"
+  tag: "0.2.1"
 
 # Image pull secrets (required for private GHCR)
 imagePullSecrets: []
@@ -88,6 +88,28 @@ secretMounts: []
 # secretMounts:
 #   - name: my-db-secret
 #   - name: api-credentials
+
+# Optional: Sidecar containers for utility tools
+# Sidecars share all mounts with the main container (scripts, secrets, logs)
+# Includes: curl, wget, jq, awscli, postgresql-client, mysql-client, git, ssh, python3
+# Runs as 'nobody' user (UID 65534) for security in production
+sidecars: []
+# Example: Use pre-built utilities image
+# sidecars:
+#   - name: utilities
+#     image: ghcr.io/blazingbrainz/microcron-ce-utilities:0.2.1
+#     imagePullPolicy: IfNotPresent
+#     resources:
+#       requests:
+#         memory: 256Mi
+#         cpu: 100m
+#       limits:
+#         memory: 512Mi
+#         cpu: 500m
+#     # Optional: Override security context (default: runs as 'nobody' user)
+#     securityContext:
+#       runAsNonRoot: true
+#       runAsUser: 65534  # nobody user
 
 # Liveness and readiness probes
 livenessProbe:

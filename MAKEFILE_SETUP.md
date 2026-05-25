@@ -143,14 +143,14 @@ Expected output:
 ```
 Version Information:
   Chart File:        helm/Chart.yaml
-  App Version:       0.2.0
-  Chart Version:     0.2.0
+  App Version:       0.2.1
+  Chart Version:     0.2.1
 
 Docker Image:
-  ghcr.io/blazingbrainz/microcron-ce:0.2.0
+  ghcr.io/blazingbrainz/microcron-ce:0.2.1
 
 OCI Artifact:
-  ghcr.io/blazingbrainz/helm-charts/microcron-ce:0.2.0
+  ghcr.io/blazingbrainz/helm-charts/microcron-ce:0.2.1
 ```
 
 ---
@@ -236,9 +236,49 @@ make debug
 
 ---
 
-## Step 5: Test Build (Without Publishing)
+## Step 5: Build Utilities Sidecar Image (Optional)
 
-### 5.1 Test Docker Build Only
+The Makefile includes support for building a utilities sidecar image with cloud CLIs and database tools.
+
+```bash
+# Build utilities image
+make utilities-build
+
+# Verify build
+docker images | grep utilities
+```
+
+Expected output:
+```
+ghcr.io/blazingbrainz/microcron-ce-utilities:0.2.1
+```
+
+The utilities image includes:
+- **Network Tools**: curl, wget, jq, dnsutils
+- **Cloud CLI**: AWS CLI (awscli)
+- **Database Tools**: PostgreSQL client (psql), MySQL client
+- **Utilities**: git, SSH, Python3, bash
+
+You can then configure it as a sidecar in `values.yaml`:
+
+```yaml
+sidecars:
+  - name: utilities
+    image: ghcr.io/blazingbrainz/microcron-ce-utilities:0.2.1
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 100m
+      limits:
+        memory: 512Mi
+        cpu: 500m
+```
+
+---
+
+## Step 6: Test Build (Without Publishing)
+
+### 6.1 Test Docker Build Only
 
 ```bash
 make docker-build
@@ -246,12 +286,12 @@ make docker-build
 
 What happens:
 1. Reads versions from `helm/Chart.yaml`
-2. Builds Docker image: `ghcr.io/blazingbrainz/microcron-ce:0.2.0`
+2. Builds Docker image: `ghcr.io/blazingbrainz/microcron-ce:0.2.1`
 3. Takes ~2-5 minutes depending on internet speed
 
 Expected output:
 ```
-Building Docker image: ghcr.io/blazingbrainz/microcron-ce:0.2.0
+Building Docker image: ghcr.io/blazingbrainz/microcron-ce:0.2.1
 [+] Building 45.2s (13/13) FINISHED
 ...
 ✓ Docker image built successfully
@@ -262,7 +302,7 @@ Verify image:
 docker images | grep microcron-ce
 ```
 
-### 5.2 Test Helm Package Only
+### 6.2 Test Helm Package Only
 
 ```bash
 make helm-package
@@ -270,26 +310,26 @@ make helm-package
 
 What happens:
 1. Reads versions from `helm/Chart.yaml`
-2. Packages Helm chart: `helm/microcron-ce-0.2.0.tgz`
+2. Packages Helm chart: `helm/microcron-ce-0.2.1.tgz`
 3. Takes ~1 second
 
 Expected output:
 ```
 Packaging Helm chart...
-Successfully packaged chart and saved it to: .../helm/microcron-ce-0.2.0.tgz
-✓ Helm chart packaged: helm/microcron-ce-0.2.0.tgz
+Successfully packaged chart and saved it to: .../helm/microcron-ce-0.2.1.tgz
+✓ Helm chart packaged: helm/microcron-ce-0.2.1.tgz
 ```
 
 Verify package:
 ```bash
-ls -lh helm/microcron-ce-0.2.0.tgz
+ls -lh helm/microcron-ce-0.2.1.tgz
 ```
 
 ---
 
-## Step 6: Full Publish Workflow (First Time)
+## Step 7: Full Publish Workflow (First Time)
 
-### 6.1 Prepare Environment
+### 7.1 Prepare Environment
 
 ```bash
 # Option 1: Load from .env file (if you created it)
@@ -300,7 +340,7 @@ export GITHUB_USERNAME="your-github-username"
 export GITHUB_PAT="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 ```
 
-### 6.2 Run Full Publish
+### 7.2 Run Full Publish
 
 ```bash
 make publish GITHUB_USERNAME=$GITHUB_USERNAME GITHUB_PAT=$GITHUB_PAT
@@ -329,30 +369,30 @@ Expected final output:
 Microcron-CE Build & Publish Pipeline
 ========================================
 
-Building Docker image: ghcr.io/blazingbrainz/microcron-ce:0.2.0
+Building Docker image: ghcr.io/blazingbrainz/microcron-ce:0.2.1
 ...
-✓ Docker image pushed: ghcr.io/blazingbrainz/microcron-ce:0.2.0
+✓ Docker image pushed: ghcr.io/blazingbrainz/microcron-ce:0.2.1
 
 Packaging Helm chart...
-✓ Helm chart packaged: helm/microcron-ce-0.2.0.tgz
+✓ Helm chart packaged: helm/microcron-ce-0.2.1.tgz
 
 Publishing Helm chart as OCI artifact...
-✓ Helm chart published: ghcr.io/blazingbrainz/helm-charts/microcron-ce:0.2.0
+✓ Helm chart published: ghcr.io/blazingbrainz/helm-charts/microcron-ce:0.2.1
 
 ========================================
 ✓ Publish Complete!
 ========================================
 
 Artifacts Published:
-  Docker Image: ghcr.io/blazingbrainz/microcron-ce:0.2.0
-  OCI Artifact: ghcr.io/blazingbrainz/helm-charts/microcron-ce:0.2.0
+  Docker Image: ghcr.io/blazingbrainz/microcron-ce:0.2.1
+  OCI Artifact: ghcr.io/blazingbrainz/helm-charts/microcron-ce:0.2.1
 
 Pull commands:
-  docker pull ghcr.io/blazingbrainz/microcron-ce:0.2.0
-  helm pull oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce:0.2.0
+  docker pull ghcr.io/blazingbrainz/microcron-ce:0.2.1
+  helm pull oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce:0.2.1
 ```
 
-### 6.3 Verify Published Artifacts
+### 7.3 Verify Published Artifacts
 
 ```bash
 # Check Docker image in GHCR
@@ -365,9 +405,9 @@ oras repo tags ghcr.io/blazingbrainz/helm-charts/microcron-ce
 
 ---
 
-## Step 7: Update Version & Republish (Next Releases)
+## Step 8: Update Version & Republish (Next Releases)
 
-### 7.1 Update Version in helm/Chart.yaml
+### 8.1 Update Version in helm/Chart.yaml
 
 ```bash
 # Edit the Chart.yaml file
@@ -378,7 +418,7 @@ nano helm/Chart.yaml
 # appVersion: "0.3.0"
 ```
 
-### 7.2 Run Publish Again
+### 8.2 Run Publish Again
 
 ```bash
 make publish GITHUB_USERNAME=$GITHUB_USERNAME GITHUB_PAT=$GITHUB_PAT
@@ -492,25 +532,25 @@ After first successful publish:
 
 1. **Tag the release in Git:**
    ```bash
-   git tag -a v0.2.0 -m "Release 0.2.0: Add secret mounting support"
-   git push origin v0.2.0
+   git tag -a v0.2.1 -m "Release 0.2.1: Add secret mounting support"
+   git push origin v0.2.1
    ```
 
 2. **Create GitHub Release:**
    - Go to: https://github.com/blazingbrainz/microcron-ce/releases
    - Click "Create a new release"
-   - Tag version: `v0.2.0`
-   - Title: `Release 0.2.0: Add secret mounting support`
+   - Tag version: `v0.2.1`
+   - Title: `Release 0.2.1: Add secret mounting support`
    - Description: Add changelog details
 
 3. **Update Deployment:**
    ```bash
    # Pull new image version
-   docker pull ghcr.io/blazingbrainz/microcron-ce:0.2.0
+   docker pull ghcr.io/blazingbrainz/microcron-ce:0.2.1
    
    # Deploy with helm
    helm install microcron-ce \
-     oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce:0.2.0 \
+     oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce:0.2.1 \
      -n microcron-ce --create-namespace
    ```
 

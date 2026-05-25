@@ -1,0 +1,56 @@
+# Dockerfile for microcron-utilities sidecar image
+# Installs tools to /opt/microcron-tools for sharing with main container
+# Build: docker build -f Dockerfile.utilities -t ghcr.io/yourusername/microcron-utilities:latest .
+# Push:  docker push ghcr.io/yourusername/microcron-utilities:latest
+
+FROM ubuntu:latest
+
+LABEL org.opencontainers.image.source=https://github.com/blazingbrainz/microcron-ce
+LABEL org.opencontainers.image.description="Microcron-CE Utilities Sidecar: Cloud CLIs and database tools for cron scripts"
+LABEL org.opencontainers.image.licenses="MIT"
+
+# Create shared tools directory
+RUN mkdir -p /opt/microcron-tools/bin && \
+    chmod 755 /opt/microcron-tools/bin
+
+# Update package manager and install tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Network tools
+    curl \
+    wget \
+    jq \
+    dnsutils \
+    # AWS CLI
+    awscli \
+    # Database clients
+    postgresql-client \
+    mysql-client \
+    # Additional utilities
+    bash \
+    git \
+    openssh-client \
+    ca-certificates \
+    python3 \
+    python3-pip \
+    # Clean up
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy tools to shared volume location (/opt/microcron-tools)
+# This allows the main container to access them
+RUN for tool in curl wget jq dig aws psql mysql git ssh ssh-keygen; do \
+      if command -v $tool &> /dev/null; then \
+        ln -sf $(which $tool) /opt/microcron-tools/bin/$tool 2>/dev/null || true; \
+      fi; \
+    done
+
+# Also copy Python and pip for scripts that need Python
+RUN ln -sf $(which python3) /opt/microcron-tools/bin/python && \
+    ln -sf $(which pip3) /opt/microcron-tools/bin/pip && \
+    ln -sf $(which bash) /opt/microcron-tools/bin/bash
+
+# Run as unprivileged user (use built-in 'nobody' user)
+USER nobody
+
+# Keep container running indefinitely
+# Also ensure /opt/microcron-tools/bin is in PATH for testing
+CMD ["/bin/bash", "-c", "while true; do sleep infinity; done"]

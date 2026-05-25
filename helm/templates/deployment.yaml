@@ -26,6 +26,62 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
+      {{- if .Values.sidecars }}
+      {{- range $index, $sidecar := .Values.sidecars }}
+      - name: {{ $sidecar.name }}
+        image: "{{ $sidecar.image }}"
+        imagePullPolicy: {{ $sidecar.imagePullPolicy | default "IfNotPresent" }}
+        {{- if $sidecar.securityContext }}
+        securityContext:
+          {{- toYaml $sidecar.securityContext | nindent 12 }}
+        {{- else }}
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65534
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+        {{- end }}
+        {{- if $sidecar.resources }}
+        resources:
+          {{- toYaml $sidecar.resources | nindent 12 }}
+        {{- end }}
+        volumeMounts:
+        - name: scripts
+          mountPath: /etc/microcron-ce/scripts
+          readOnly: true
+        {{- if .Values.sidecars }}
+        - name: tools
+          mountPath: /opt/microcron-tools
+          readOnly: true
+        {{- end }}
+        {{- range .Values.secretMounts }}
+        - name: secret-{{ .name }}
+          mountPath: /etc/microcron-ce/secrets/{{ .name }}
+          readOnly: true
+        {{- end }}
+        {{- if .Values.persistence.enabled }}
+        - name: logs
+          mountPath: {{ .Values.logging.logDir }}
+        {{- end }}
+        {{- with $sidecar.volumeMounts }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- if $sidecar.env }}
+        env:
+          {{- toYaml $sidecar.env | nindent 12 }}
+        {{- end }}
+        {{- if $sidecar.command }}
+        command:
+          {{- toYaml $sidecar.command | nindent 12 }}
+        {{- end }}
+        {{- if $sidecar.args }}
+        args:
+          {{- toYaml $sidecar.args | nindent 12 }}
+        {{- end }}
+      {{- end }}
+      {{- end }}
       - name: {{ .Chart.Name }}
         securityContext:
           {{- toYaml .Values.securityContext | nindent 12 }}
@@ -45,6 +101,10 @@ spec:
           protocol: TCP
         env:
           {{- toYaml .Values.env | nindent 12 }}
+          {{- if .Values.sidecars }}
+          - name: PATH
+            value: "/opt/microcron-tools/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+          {{- end }}
         {{- if .Values.livenessProbe }}
         livenessProbe:
           exec:
@@ -75,6 +135,11 @@ spec:
         - name: scripts
           mountPath: /etc/microcron-ce/scripts
           readOnly: true
+        {{- if .Values.sidecars }}
+        - name: tools
+          mountPath: /opt/microcron-tools
+          readOnly: true
+        {{- end }}
         {{- range .Values.secretMounts }}
         - name: secret-{{ .name }}
           mountPath: /etc/microcron-ce/secrets/{{ .name }}
@@ -88,6 +153,10 @@ spec:
       - name: scripts
         configMap:
           name: {{ .Values.configMapName }}
+      {{- if .Values.sidecars }}
+      - name: tools
+        emptyDir: {}
+      {{- end }}
       {{- range .Values.secretMounts }}
       - name: secret-{{ .name }}
         secret:

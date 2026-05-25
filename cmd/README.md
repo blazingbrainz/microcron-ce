@@ -17,7 +17,7 @@ microcron-ce/
 │   │   └── executor.go          # Script execution engine
 │   └── logger/
 │       └── logger.go            # Log rotation handler
-├── helm/                        # Helm chart v0.2.0           
+├── helm/                        # Helm chart v0.2.1           
 │   ├── Chart.yaml
 │   ├── values.yaml
 │   ├── templates/

@@ -19,10 +19,12 @@ Microcron-CE solves the problem of generic scheduled tasks managemet in Giitops 
 
 ✅ **ConfigMap-Based Script Management**: Scripts mounted as volume  
 ✅ **Cron Schedule Support**: Full cron expression support (5 fields)  
+✅ **Kubernetes Secrets Support**: Reference secrets in scripts as environment variables  
+✅ **Sidecar Utilities**: Share tools (curl, aws-cli, psql, mysql, git, etc.) via shared volume  
 ✅ **Automatic Log Rotation**: Daily logs with configurable retention  
 ✅ **Persistent Logging**: Optional PVC for durable log storage  
 ✅ **Hot Script Reloading**: ConfigMap updates detected via polling  
-✅ **Security**: Non-root user, read-only filesystem (except logs)  
+✅ **Security**: Non-root user, dropped capabilities, read-only filesystem (except logs)  
 ✅ **Health Checks**: Liveness and readiness probes  
 ✅ **Production Ready**: Multi-stage Docker build, resource limits, minimal footprint
 
@@ -43,10 +45,10 @@ kubectl create secret docker-registry ghcr-secret \
   -n microcron-ce
 
 # 3. Add Helm repo and install
-helm pull oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce --version 0.2.0
+helm pull oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce --version 0.2.1
 
 # 4. Install chart
-helm install microcron-ce ./microcron-ce-0.2.0.tgz \
+helm install microcron-ce ./microcron-ce-0.2.1.tgz \
   --namespace microcron-ce \
   --set image.repository=ghcr.io/blazingbrainz/microcron-ce \
   --set image.pullPolicy=IfNotPresent
@@ -127,11 +129,17 @@ EOF
 Each referenced key is available as an environment variable. The secret keys must match exactly (case-sensitive). Mounted secrets are read-only; no Kubernetes RBAC 
 permissions are required.
 
+### Sidecar Containers for Utility Tools
+
+Scripts can invoke CLI tools from optional sidecar containers running in the same pod. Utilities are installed to a **shared volume** (`/opt/microcron-tools`) so the main container can directly access them.
+
+See [helm/README.md](helm/README.md#sidecar-containers-for-utility-tools) for detailed sidecar configuration and custom image creation.
 
 ### Container Images
 
-**Docker Image**: `ghcr.io/blazingbrainz/microcron-ce:0.2.0`
-**Helm Chart**: `oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce:0.2.0`
+**Docker Image**: `ghcr.io/blazingbrainz/microcron-ce:0.2.1`
+
+**Helm Chart**: `oci://ghcr.io/blazingbrainz/helm-charts/microcron-ce:0.2.1`
 
 Both available at GitHub Container Registry (GHCR)
 
@@ -146,7 +154,7 @@ replicaCount: 1
 image:
   repository: ghcr.io/blazingbrainz/microcron-ce
   pullPolicy: IfNotPresent
-  tag: "0.2.0"
+  tag: "0.2.1"
 
 imagePullSecrets: []
   # - name: ghcr-secret
@@ -286,7 +294,6 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 ## Roadmap
 
 Future enhancements:
-- [ ] Sidecar container support for additional cli tools. 
 - [ ] Add support for k8s secret creation via cloud secret stores
 - [ ] Job execution history and metrics
 - [ ] Prometheus metrics export
